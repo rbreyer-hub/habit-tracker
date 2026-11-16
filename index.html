@@ -158,14 +158,19 @@ input[type=time]{display:block;text-align:left}
   <label>Notifications</label>
   <button id="sEnable" type="button" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-weight:600">Enable notifications</button>
   <p class="note" id="notifNote"></p>
+  <label>Push reminders (work when the app is closed)</label>
+  <button id="sPush" type="button" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-weight:600">Enable push reminders</button>
+  <p class="note" id="pushNote"></p>
   <div class="actions"><button id="sTest" type="button">Test</button><button id="sClose" class="primary" type="button">Done</button></div>
   <p class="note">Reminders fire while the app is open or running in the background. For best results, install it to your home screen (Share → Add to Home Screen) and keep it open.</p>
 </dialog>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-messaging-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="app.js?v=9"></script>
-<script src="sync.js?v=2"></script>
+<script src="app.js?v=10"></script>
+<script src="sync.js?v=3"></script>
+<script src="push.js?v=1"></script>
 </body>
 </html>

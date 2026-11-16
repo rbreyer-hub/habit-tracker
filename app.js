@@ -394,6 +394,7 @@ $('#settingsBtn').onclick = () => {
   $('#sMode').value = state.settings.quoteMode;
   $('#sQTime').value = state.settings.quoteTime;
   notifNote();
+  if (window.pushNote) window.pushNote();
   $('#setDlg').showModal();
 };
 $('#sClose').onclick = () => {
@@ -420,6 +421,7 @@ async function notify(title, body, tag) {
 function tick() {
   const now = new Date(), today = keyOf(now);
   if (today !== renderedDay) render(); // midnight: every habit restarts
+  if (state.settings.push) return; // the server sends reminders; avoid duplicates
   if (!state.settings.notify || !('Notification' in window) || Notification.permission !== 'granted') return;
   if (state.firedDay !== today) { state.fired = {}; state.firedDay = today; }
   const hm = `${pad(now.getHours())}:${pad(now.getMinutes())}`;

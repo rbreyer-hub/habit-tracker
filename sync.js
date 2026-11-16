@@ -49,8 +49,9 @@
     clearTimeout(timer); timer = setTimeout(pushNow, 800);
   };
 
+  window.cloudUser = () => user;
   auth.onAuthStateChanged(u => {
-    user = u; if (unsub) { unsub(); unsub = null; }
+    user = u; document.dispatchEvent(new CustomEvent('cloudauth', { detail: u })); if (unsub) { unsub(); unsub = null; }
     if (!u) return status('');
     status('Syncing…');
     unsub = ref().onSnapshot(snap => {
@@ -65,7 +66,7 @@
   });
 
   $('#acctBtn').onclick = async () => {
-    if (user) return auth.signOut().then(() => status(''));
+    if (user) { if (window.pushDisable) await window.pushDisable(); return auth.signOut().then(() => status('')); }
     try { await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
     catch (e) {
       if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')
