@@ -65,6 +65,7 @@ function load() {
 let state = load();
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} if (window.cloudPush) window.cloudPush(); };
 
+let view = 'today', weekOffset = 0;
 let renderedDay = keyOf(new Date());
 let quoteShift = 0;
 let editingId = null;
@@ -162,6 +163,7 @@ function render() {
   $('#today').innerHTML = todays.map(h => habitHTML(h, true)).join('');
   $('#later').innerHTML = others.map(h => habitHTML(h, false)).join('');
   $('#laterH').hidden = !others.length;
+  if (view === 'week') renderWeek();
 }
 
 document.addEventListener('click', e => {
@@ -177,6 +179,70 @@ document.addEventListener('click', e => {
   else if (act === 'newgoal') { h.goal = { months: h.goal.months, start: keyOf(new Date()) }; save(); render(); }
 });
 $('#qNext').onclick = () => { quoteShift++; render(); };
+
+// ---------- weekly summary ----------
+function habitStart(h) {
+  if (h.created) return h.created;
+  const ks = Object.keys(state.log).filter(k => state.log[k][h.id]).sort();
+  return ks.length ? ks[0] : keyOf(new Date());
+}
+function weekStats(off) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const start = new Date(today); start.setDate(start.getDate() - start.getDay() + off * 7);
+  const days = [...Array(7)].map((_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
+  const dayTot = days.map(() => ({ s: 0, d: 0 }));
+  const rows = state.habits.map(h => {
+    const hs = habitStart(h);
+    let s = 0, dn = 0, reps = 0;
+    const cells = days.map((d, i) => {
+      const k = keyOf(d), c = countOn(h, k), past = d <= today;
+      if (!scheduled(h, d) || k < hs) return { cls: 'na', t: '·' };
+      if (!past) return { cls: 'fut', t: '' };
+      s++; dayTot[i].s++; reps += c;
+      if (isDone(h, k)) { dn++; dayTot[i].d++; return { cls: 'ok', t: '✓' }; }
+      if (c > 0) return { cls: 'part', t: c };
+      return d.getTime() === today.getTime() ? { cls: 'now', t: '' } : { cls: 'miss', t: '✗' };
+    });
+    return { h, cells, s, dn, reps };
+  }).filter(r => r.s > 0 || r.cells.some(c => c.cls !== 'na'));
+  const s = rows.reduce((a, r) => a + r.s, 0), dn = rows.reduce((a, r) => a + r.dn, 0);
+  const perfect = dayTot.filter((x, i) => x.s > 0 && x.d === x.s && days[i] <= today).length;
+  return { days, rows, s, dn, perfect, pct: s ? Math.round(dn / s * 100) : null, today };
+}
+function renderWeek() {
+  const w = weekStats(weekOffset), prev = weekStats(weekOffset - 1);
+  const fmt = d => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const label = weekOffset === 0 ? 'This week' : weekOffset === -1 ? 'Last week' : `${fmt(w.days[0])} – ${fmt(w.days[6])}`;
+  let delta = '';
+  if (w.pct !== null && prev.pct !== null && weekOffset <= 0) { const dd = w.pct - prev.pct; delta = dd === 0 ? 'Same as the previous week.' : `${dd > 0 ? '▲' : '▼'} ${Math.abs(dd)}% vs the previous week.`; }
+  const msg = w.pct === null ? 'Nothing scheduled yet this week.' : w.pct === 100 ? '🎉 Perfect so far — keep it going!' : w.pct >= 70 ? '💪 Strong week. ' + delta : w.pct >= 40 ? 'Solid start — push for more. ' + delta : 'Every check-in counts. Start fresh today. ' + delta;
+  const head = '<div></div>' + w.days.map(d => `<div class="dh ${d.getTime() === w.today.getTime() ? 'now' : ''}">${DAYS[d.getDay()]}<br>${d.getDate()}</div>`).join('');
+  const body = w.rows.map(r => {
+    const pct = r.s ? Math.round(r.dn / r.s * 100) + '%' : '—';
+    const reps = target(r.h) > 1 && r.reps ? ` · ${r.reps} total` : '';
+    return `<div class="hn">${esc(r.h.emoji || '')} ${esc(r.h.name)}<small>${r.dn}/${r.s} · ${pct}${reps}</small></div>` +
+      r.cells.map(c => `<div class="c ${c.cls}">${c.t}</div>`).join('');
+  }).join('');
+  $('#weekView').innerHTML = `
+    <div class="wk-nav"><button id="wkPrev" aria-label="Previous week">‹</button><b>${label}<br><small class="date">${fmt(w.days[0])} – ${fmt(w.days[6])}</small></b><button id="wkNext" aria-label="Next week" ${weekOffset >= 0 ? 'disabled' : ''}>›</button></div>
+    <div class="stats">
+      <div class="stat"><strong>${w.pct === null ? '—' : w.pct + '%'}</strong><span>completion</span></div>
+      <div class="stat"><strong>${w.dn}/${w.s}</strong><span>check-ins</span></div>
+      <div class="stat"><strong>${w.perfect}</strong><span>perfect days</span></div>
+    </div>
+    <p class="wk-msg">${msg}</p>
+    ${w.rows.length ? `<div class="wk">${head}${body}</div>` : ''}`;
+  $('#wkPrev').onclick = () => { weekOffset--; renderWeek(); };
+  $('#wkNext').onclick = () => { if (weekOffset < 0) { weekOffset++; renderWeek(); } };
+}
+function setView(v) {
+  view = v; weekOffset = 0;
+  $('#tabToday').classList.toggle('on', v === 'today'); $('#tabWeek').classList.toggle('on', v === 'week');
+  $('#todayView').hidden = v !== 'today'; $('#weekView').hidden = v !== 'week'; $('#addBtn').hidden = v !== 'today';
+  render();
+}
+$('#tabToday').onclick = () => setView('today');
+$('#tabWeek').onclick = () => setView('week');
 
 // ---------- habit dialog ----------
 $('#fDays').innerHTML = DAYS.map((d, i) => `<label><input type="checkbox" value="${i}"><span>${d}</span></label>`).join('');
@@ -211,7 +277,7 @@ $('#habitForm').onsubmit = () => {
   const months = +$('#fGoal').value, old = editingId && state.habits.find(h => h.id === editingId).goal;
   data.goal = !months ? null : (old && old.months === months ? old : { months, start: keyOf(new Date()) });
   if (editingId) Object.assign(state.habits.find(h => h.id === editingId), data);
-  else state.habits.push({ id: uid(), ...data });
+  else state.habits.push({ id: uid(), ...data, created: keyOf(new Date()) });
   save(); render();
 };
 
