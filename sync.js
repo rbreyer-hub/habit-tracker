@@ -18,11 +18,18 @@
 
   // first sign-in on this device: union habits, max the daily counts
   function merge(cloud) {
-    const byId = {}; state.habits.forEach(h => byId[h.id] = h); (cloud.habits || []).forEach(h => byId[h.id] = h);
+    const norm = h => (h.name || '').trim().toLowerCase();
+    const byId = {}, byName = {}, remap = {};
+    (cloud.habits || []).forEach(h => { byId[h.id] = h; byName[norm(h)] = h.id; });
+    // a local habit with the same name as a cloud one is the same habit: don't duplicate it
+    state.habits.forEach(h => {
+      if (byId[h.id]) return;
+      if (byName[norm(h)]) remap[h.id] = byName[norm(h)]; else byId[h.id] = h;
+    });
     const log = JSON.parse(JSON.stringify(cloud.log || {}));
     Object.entries(state.log).forEach(([day, m]) => {
       log[day] = log[day] || {};
-      Object.entries(m).forEach(([id, n]) => log[day][id] = Math.max(log[day][id] || 0, n));
+      Object.entries(m).forEach(([id, n]) => { const t = remap[id] || id; log[day][t] = Math.max(log[day][t] || 0, n); });
     });
     return { habits: Object.values(byId), log, quote: cloud.quote };
   }

@@ -50,7 +50,7 @@ const pad = n => String(n).padStart(2, '0');
 
 function defaults() {
   return {
-    habits: [{ id: uid(), name: '50 Pushups', emoji: '💪', days: [0, 1, 2, 3, 4, 5, 6], time: '09:00', target: 50, step: 10 }],
+    habits: [],
     log: {}, fired: {}, firedDay: '',
     settings: { quoteMode: 'minute', quoteTime: '08:00', notify: false, quoteMinuteMigrated: true }
   };
@@ -175,7 +175,7 @@ function render() {
   const todays = state.habits.filter(h => scheduled(h, now));
   const others = state.habits.filter(h => !scheduled(h, now));
   const doneN = todays.filter(h => isDone(h, renderedDay)).length;
-  $('#progress').textContent = todays.length ? `${doneN} of ${todays.length} done today${doneN === todays.length ? ' 🎉' : ''}` : 'Nothing scheduled today. Tap + to add a habit.';
+  $('#progress').textContent = !state.habits.length ? 'No habits yet. Tap + to add your first one.' : todays.length ? `${doneN} of ${todays.length} done today${doneN === todays.length ? ' 🎉' : ''}` : 'Nothing scheduled today. Tap + to add a habit.';
   $('#today').innerHTML = todays.map(h => habitHTML(h, true)).join('');
   $('#later').innerHTML = others.map(h => habitHTML(h, false)).join('');
   $('#laterH').hidden = !others.length;
