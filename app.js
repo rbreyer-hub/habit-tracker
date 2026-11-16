@@ -1,0 +1,250 @@
+const $ = s => document.querySelector(s);
+const KEY = 'habit-tracker-v1';
+const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const QUOTES = [
+  ["We are what we repeatedly do. Excellence, then, is not an act, but a habit.", "Will Durant"],
+  ["Small daily improvements are the key to staggering long-term results.", "Robin Sharma"],
+  ["Discipline is choosing between what you want now and what you want most.", "Abraham Lincoln"],
+  ["It does not matter how slowly you go as long as you do not stop.", "Confucius"],
+  ["The secret of getting ahead is getting started.", "Mark Twain"],
+  ["Motivation gets you going, but discipline keeps you growing.", "John C. Maxwell"],
+  ["You don't have to be great to start, but you have to start to be great.", "Zig Ziglar"],
+  ["Success is the sum of small efforts repeated day in and day out.", "Robert Collier"],
+  ["Don't count the days, make the days count.", "Muhammad Ali"],
+  ["The only bad workout is the one that didn't happen.", "Unknown"],
+  ["Your future is created by what you do today, not tomorrow.", "Robert Kiyosaki"],
+  ["Action is the foundational key to all success.", "Pablo Picasso"],
+  ["A journey of a thousand miles begins with a single step.", "Lao Tzu"],
+  ["Strength does not come from winning. Your struggles develop your strengths.", "Arnold Schwarzenegger"],
+  ["The pain you feel today will be the strength you feel tomorrow.", "Unknown"],
+  ["Do something today that your future self will thank you for.", "Unknown"],
+  ["Habits are the compound interest of self-improvement.", "James Clear"],
+  ["You do not rise to the level of your goals. You fall to the level of your systems.", "James Clear"],
+  ["Energy and persistence conquer all things.", "Benjamin Franklin"],
+  ["Well done is better than well said.", "Benjamin Franklin"],
+  ["What you do every day matters more than what you do once in a while.", "Gretchen Rubin"],
+  ["Fall seven times, stand up eight.", "Japanese proverb"],
+  ["The best time to plant a tree was 20 years ago. The second best time is now.", "Chinese proverb"],
+  ["Push yourself, because no one else is going to do it for you.", "Unknown"],
+  ["Make each day your masterpiece.", "John Wooden"],
+  ["Consistency is what transforms average into excellence.", "Unknown"],
+  ["Done is better than perfect.", "Sheryl Sandberg"],
+  ["Tough times never last, but tough people do.", "Robert H. Schuller"],
+  ["The body achieves what the mind believes.", "Napoleon Hill"],
+  ["One percent better every day.", "Unknown"],
+  ["Quit doing the same things and expecting different results. Change starts with you.", "Unknown"],
+  ["Perseverance is not a long race; it is many short races one after the other.", "Walter Elliot"],
+  ["Don't wish it were easier. Wish you were better.", "Jim Rohn"],
+  ["Hard work beats talent when talent doesn't work hard.", "Tim Notke"],
+  ["Someone is sitting in the shade today because someone planted a tree long ago.", "Warren Buffett"],
+  ["Start where you are. Use what you have. Do what you can.", "Arthur Ashe"],
+  ["Winners are not people who never fail, but people who never quit.", "Unknown"],
+  ["Every rep counts. Every day counts.", "Unknown"],
+  ["Be stronger than your excuses.", "Unknown"],
+  ["Progress, not perfection.", "Unknown"]
+];
+
+const uid = () => Math.random().toString(36).slice(2, 10);
+const keyOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const pad = n => String(n).padStart(2, '0');
+
+function defaults() {
+  return {
+    habits: [{ id: uid(), name: '50 Pushups', emoji: '💪', days: [0, 1, 2, 3, 4, 5, 6], time: '09:00', target: 50, step: 10 }],
+    log: {}, fired: {}, firedDay: '',
+    settings: { quoteMode: 'daily', quoteTime: '08:00', notify: false }
+  };
+}
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if (s && s.habits) return Object.assign(defaults(), s, { settings: Object.assign(defaults().settings, s.settings) });
+  } catch (e) {}
+  return defaults();
+}
+let state = load();
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+
+let renderedDay = keyOf(new Date());
+let quoteShift = 0;
+let editingId = null;
+
+const target = h => Math.max(1, h.target || 1);
+const countOn = (h, key) => (state.log[key] && state.log[key][h.id]) || 0;
+const isDone = (h, key) => countOn(h, key) >= target(h);
+const scheduled = (h, d) => h.days.includes(d.getDay());
+
+function setCount(h, n) {
+  const key = keyOf(new Date());
+  state.log[key] = state.log[key] || {};
+  state.log[key][h.id] = Math.max(0, Math.min(target(h), n));
+  save(); render();
+}
+
+function streak(h) {
+  let s = 0;
+  const d = new Date();
+  for (let i = 0; i < 400; i++, d.setDate(d.getDate() - 1)) {
+    if (!scheduled(h, d)) continue;
+    if (isDone(h, keyOf(d))) s++;
+    else if (i > 0) break; // today not done yet doesn't break the streak
+  }
+  return s;
+}
+
+function weekDots(h) {
+  const out = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    out.push(`<span class="${isDone(h, keyOf(d)) ? 'on' : ''} ${i === 0 ? 'today' : ''}" title="${keyOf(d)}"></span>`);
+  }
+  return out.join('');
+}
+
+function habitHTML(h, active) {
+  const key = keyOf(new Date()), c = countOn(h, key), t = target(h), done = isDone(h, key), st = streak(h);
+  const meta = [t > 1 ? `${c}/${t}` : '', h.time ? '⏰ ' + h.time : '', st ? `🔥 ${st}` : ''].filter(Boolean).join(' · ');
+  return `<div class="habit ${done ? 'done' : ''}" data-id="${h.id}">
+    <div class="row">
+      <button class="check" data-act="toggle" aria-label="Toggle done">${done ? '✓' : h.emoji || ''}</button>
+      <button class="info" data-act="edit"><div class="name">${esc(h.name)}</div><div class="meta">${meta || 'Tap ✓ when done'}</div></button>
+    </div>
+    ${t > 1 ? `<div class="bar"><i style="width:${Math.min(100, c / t * 100)}%"></i></div>` : ''}
+    <div class="tools">
+      ${active && t > 1 ? `<button data-act="add">+${h.step || 10}</button><button data-act="sub">−${h.step || 10}</button>` : ''}
+      <div class="dots">${weekDots(h)}</div>
+    </div>
+  </div>`;
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function currentQuote() {
+  const now = new Date();
+  const base = state.settings.quoteMode === 'hourly'
+    ? Math.floor(now.getTime() / 3600000)
+    : Math.floor((now.getTime() - now.getTimezoneOffset() * 60000) / 86400000);
+  return QUOTES[(((base * 7 + quoteShift) % QUOTES.length) + QUOTES.length) % QUOTES.length];
+}
+
+function render() {
+  const now = new Date();
+  renderedDay = keyOf(now);
+  $('#date').textContent = now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  const q = $('#quote');
+  q.hidden = state.settings.quoteMode === 'off';
+  if (!q.hidden) { const [t, a] = currentQuote(); $('#qText').textContent = `“${t}”`; $('#qAuthor').textContent = '— ' + a; }
+  const todays = state.habits.filter(h => scheduled(h, now));
+  const others = state.habits.filter(h => !scheduled(h, now));
+  const doneN = todays.filter(h => isDone(h, renderedDay)).length;
+  $('#progress').textContent = todays.length ? `${doneN} of ${todays.length} done today${doneN === todays.length ? ' 🎉' : ''}` : 'Nothing scheduled today. Tap + to add a habit.';
+  $('#today').innerHTML = todays.map(h => habitHTML(h, true)).join('');
+  $('#later').innerHTML = others.map(h => habitHTML(h, false)).join('');
+  $('#laterH').hidden = !others.length;
+}
+
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-act]');
+  if (!btn) return;
+  const h = state.habits.find(x => x.id === btn.closest('.habit').dataset.id);
+  const c = countOn(h, keyOf(new Date()));
+  const act = btn.dataset.act;
+  if (act === 'toggle') setCount(h, isDone(h, keyOf(new Date())) ? 0 : target(h));
+  else if (act === 'add') setCount(h, c + (h.step || 10));
+  else if (act === 'sub') setCount(h, c - (h.step || 10));
+  else if (act === 'edit') openHabit(h);
+});
+$('#qNext').onclick = () => { quoteShift++; render(); };
+
+// ---------- habit dialog ----------
+$('#fDays').innerHTML = DAYS.map((d, i) => `<label><input type="checkbox" value="${i}"><span>${d}</span></label>`).join('');
+function openHabit(h) {
+  editingId = h ? h.id : null;
+  $('#dlgTitle').textContent = h ? 'Edit habit' : 'New habit';
+  $('#fName').value = h ? h.name : '';
+  $('#fEmoji').value = h ? h.emoji : '✅';
+  $('#fTime').value = h ? h.time : '';
+  $('#fTarget').value = h ? target(h) : 1;
+  $('#fStep').value = h ? h.step || 10 : 10;
+  document.querySelectorAll('#fDays input').forEach(i => i.checked = h ? h.days.includes(+i.value) : true);
+  $('#fDelete').hidden = !h;
+  $('#habitDlg').showModal();
+}
+$('#addBtn').onclick = () => openHabit(null);
+$('#fCancel').onclick = () => $('#habitDlg').close();
+$('#fDelete').onclick = () => {
+  if (!confirm('Delete this habit and its history?')) return;
+  state.habits = state.habits.filter(h => h.id !== editingId);
+  save(); render(); $('#habitDlg').close();
+};
+$('#habitForm').onsubmit = () => {
+  const days = [...document.querySelectorAll('#fDays input:checked')].map(i => +i.value);
+  const data = {
+    name: $('#fName').value.trim(), emoji: $('#fEmoji').value.trim(), time: $('#fTime').value,
+    target: Math.max(1, +$('#fTarget').value || 1), step: Math.max(1, +$('#fStep').value || 10),
+    days: days.length ? days : [0, 1, 2, 3, 4, 5, 6]
+  };
+  if (!data.name) return;
+  if (editingId) Object.assign(state.habits.find(h => h.id === editingId), data);
+  else state.habits.push({ id: uid(), ...data });
+  save(); render();
+};
+
+// ---------- settings ----------
+function notifNote() {
+  const n = $('#notifNote');
+  if (!('Notification' in window)) n.textContent = 'Notifications are not supported in this browser.';
+  else if (Notification.permission === 'denied') n.textContent = 'Notifications are blocked. Enable them in your browser/site settings.';
+  else n.textContent = '';
+}
+$('#settingsBtn').onclick = () => {
+  $('#sMode').value = state.settings.quoteMode;
+  $('#sQTime').value = state.settings.quoteTime;
+  $('#sNotify').value = state.settings.notify ? '1' : '0';
+  notifNote();
+  $('#setDlg').showModal();
+};
+$('#sClose').onclick = async () => {
+  state.settings.quoteMode = $('#sMode').value;
+  state.settings.quoteTime = $('#sQTime').value || '08:00';
+  const want = $('#sNotify').value === '1';
+  if (want && 'Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
+  state.settings.notify = want && 'Notification' in window && Notification.permission === 'granted';
+  if (want && !state.settings.notify) alert('Notification permission was not granted.');
+  save(); render(); $('#setDlg').close();
+};
+$('#sTest').onclick = async () => {
+  if (!('Notification' in window)) return alert('Notifications not supported here.');
+  if (Notification.permission === 'default') await Notification.requestPermission();
+  if (Notification.permission !== 'granted') return notifNote();
+  notify('Habit Tracker', 'Notifications are working 🎉', 'test');
+};
+
+// ---------- notifications ----------
+async function notify(title, body, tag) {
+  try {
+    const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : null;
+    if (reg) return reg.showNotification(title, { body, tag, icon: 'icon.svg', badge: 'icon.svg' });
+    new Notification(title, { body, tag, icon: 'icon.svg' });
+  } catch (e) {}
+}
+function tick() {
+  const now = new Date(), today = keyOf(now);
+  if (today !== renderedDay) render(); // midnight: every habit restarts
+  if (!state.settings.notify || !('Notification' in window) || Notification.permission !== 'granted') return;
+  if (state.firedDay !== today) { state.fired = {}; state.firedDay = today; }
+  const hm = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const fire = (k, fn) => { if (!state.fired[k]) { state.fired[k] = 1; save(); fn(); } };
+  state.habits.forEach(h => {
+    if (h.time && scheduled(h, now) && hm >= h.time && !isDone(h, today) && now - new Date(`${today}T${h.time}`) < 3600000)
+      fire('h' + h.id, () => notify(`${h.emoji || ''} ${h.name}`.trim(), target(h) > 1 ? `Goal: ${target(h)}. Let's go!` : "Time to check it off!", h.id));
+  });
+  const m = state.settings.quoteMode;
+  if (m === 'hourly' && now.getMinutes() < 5) fire('qh' + now.getHours(), () => { const [t, a] = currentQuote(); notify('Motivation', `${t} — ${a}`, 'quote'); });
+  if (m === 'daily' && hm >= state.settings.quoteTime && now - new Date(`${today}T${state.settings.quoteTime}`) < 3600000)
+    fire('qd', () => { const [t, a] = currentQuote(); notify('Motivation', `${t} — ${a}`, 'quote'); });
+}
+setInterval(tick, 20000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { tick(); render(); } });
+
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+render(); tick();
