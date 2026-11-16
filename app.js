@@ -366,7 +366,9 @@ function notifReason() {
   if (!('Notification' in window))
     return isIOS && !isStandalone()
       ? 'On iPhone/iPad, notifications only work from the Home Screen app (iOS 16.4+). Tap Share → Add to Home Screen, then open Habit Tracker from the new icon and enable them there.'
-      : "This browser doesn't support notifications.";
+      : /FBAN|FBAV|Instagram|Line\/|GSA\/|; wv\)|Snapchat|Twitter|LinkedInApp|Slack/i.test(navigator.userAgent)
+        ? "You're in an app's built-in browser, which can't do notifications. Open this page in Chrome (Android) or Safari instead."
+        : "This browser doesn't support notifications. Try Chrome, Edge or Firefox (on iPhone, add the site to your Home Screen first).";
   if (Notification.permission === 'denied')
     return 'Blocked. ' + (isStandalone() ? 'Open your phone Settings → Notifications → Habit Tracker and allow them.' : 'Tap the lock/ⓘ icon next to the address bar → Site settings → Notifications → Allow, then come back.');
   if (Notification.permission === 'default') return 'The permission prompt was dismissed or hidden. Tap the button again and choose Allow.';
