@@ -74,11 +74,26 @@ const countOn = (h, key) => (state.log[key] && state.log[key][h.id]) || 0;
 const isDone = (h, key) => countOn(h, key) >= target(h);
 const scheduled = (h, d) => h.days.includes(d.getDay());
 
+const parseKey = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+const goalLabel = g => g.months === 12 ? '1-year' : `${g.months}-month`;
+function goalInfo(h) {
+  const g = h.goal; if (!g) return null;
+  const start = parseKey(g.start), end = new Date(start); end.setMonth(end.getMonth() + g.months);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  let required = 0, done = 0;
+  for (const d = new Date(start); d < end; d.setDate(d.getDate() + 1)) if (scheduled(h, d)) required++;
+  for (const d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) if (scheduled(h, d) && isDone(h, keyOf(d))) done++;
+  return { done, required: Math.max(1, required), end, left: Math.max(0, Math.ceil((end - today) / 864e5)) };
+}
 function setCount(h, n) {
   const key = keyOf(new Date());
   state.log[key] = state.log[key] || {};
   state.log[key][h.id] = Math.max(0, Math.min(target(h), n));
+  const gi = goalInfo(h);
+  const justWon = gi && !h.goal.completedOn && gi.done >= gi.required;
+  if (justWon) h.goal.completedOn = key;
   save(); render();
+  if (justWon) setTimeout(() => alert(`🏆 ${goalLabel(h.goal)} challenge complete!\n"${h.name}" — ${gi.done} days done. Amazing work!`), 50);
 }
 
 function streak(h) {
@@ -110,11 +125,18 @@ function habitHTML(h, active) {
       <button class="info" data-act="edit"><div class="name">${esc(h.name)}</div><div class="meta">${meta || 'Tap ✓ when done'}</div></button>
     </div>
     ${t > 1 ? `<div class="bar"><i style="width:${Math.min(100, c / t * 100)}%"></i></div>` : ''}
+    ${goalHTML(h)}
     <div class="tools">
       ${active && t > 1 ? `<button data-act="add">+${h.step || 10}</button><button data-act="sub">−${h.step || 10}</button>` : ''}
       <div class="dots">${weekDots(h)}</div>
     </div>
   </div>`;
+}
+function goalHTML(h) {
+  const gi = goalInfo(h); if (!gi) return '';
+  if (h.goal.completedOn) return `<div class="goal won"><span>🏆 ${goalLabel(h.goal)} challenge complete!</span><button data-act="newgoal">Start new</button></div>`;
+  const pct = Math.min(100, gi.done / gi.required * 100);
+  return `<div class="goal"><span>🎯 ${goalLabel(h.goal)} challenge: ${gi.done}/${gi.required} days · ${gi.left} days left (ends ${gi.end.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })})</span><div class="bar"><i style="width:${pct}%"></i></div></div>`;
 }
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -152,6 +174,7 @@ document.addEventListener('click', e => {
   else if (act === 'add') setCount(h, c + (h.step || 10));
   else if (act === 'sub') setCount(h, c - (h.step || 10));
   else if (act === 'edit') openHabit(h);
+  else if (act === 'newgoal') { h.goal = { months: h.goal.months, start: keyOf(new Date()) }; save(); render(); }
 });
 $('#qNext').onclick = () => { quoteShift++; render(); };
 
@@ -165,6 +188,7 @@ function openHabit(h) {
   $('#fTime').value = h ? h.time : '';
   $('#fTarget').value = h ? target(h) : 1;
   $('#fStep').value = h ? h.step || 10 : 10;
+  $('#fGoal').value = h && h.goal ? h.goal.months : 0;
   document.querySelectorAll('#fDays input').forEach(i => i.checked = h ? h.days.includes(+i.value) : true);
   $('#fDelete').hidden = !h;
   $('#habitDlg').showModal();
@@ -184,6 +208,8 @@ $('#habitForm').onsubmit = () => {
     days: days.length ? days : [0, 1, 2, 3, 4, 5, 6]
   };
   if (!data.name) return;
+  const months = +$('#fGoal').value, old = editingId && state.habits.find(h => h.id === editingId).goal;
+  data.goal = !months ? null : (old && old.months === months ? old : { months, start: keyOf(new Date()) });
   if (editingId) Object.assign(state.habits.find(h => h.id === editingId), data);
   else state.habits.push({ id: uid(), ...data });
   save(); render();
