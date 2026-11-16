@@ -359,32 +359,51 @@ $('#habitForm').onsubmit = () => {
 };
 
 // ---------- settings ----------
-function notifNote() {
-  const n = $('#notifNote');
-  if (!('Notification' in window)) n.textContent = 'Notifications are not supported in this browser.';
-  else if (Notification.permission === 'denied') n.textContent = 'Notifications are blocked. Enable them in your browser/site settings.';
-  else n.textContent = '';
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+function notifReason() {
+  if (!window.isSecureContext) return 'Notifications need a secure (https) page.';
+  if (!('Notification' in window))
+    return isIOS && !isStandalone()
+      ? 'On iPhone/iPad, notifications only work from the Home Screen app (iOS 16.4+). Tap Share → Add to Home Screen, then open Habit Tracker from the new icon and enable them there.'
+      : "This browser doesn't support notifications.";
+  if (Notification.permission === 'denied')
+    return 'Blocked. ' + (isStandalone() ? 'Open your phone Settings → Notifications → Habit Tracker and allow them.' : 'Tap the lock/ⓘ icon next to the address bar → Site settings → Notifications → Allow, then come back.');
+  if (Notification.permission === 'default') return 'The permission prompt was dismissed or hidden. Tap the button again and choose Allow.';
+  return '';
 }
+function notifNote() {
+  const on = state.settings.notify && 'Notification' in window && Notification.permission === 'granted';
+  $('#sEnable').textContent = on ? 'Notifications on ✓ (tap to turn off)' : 'Enable notifications';
+  $('#notifNote').textContent = on ? 'Habit reminders and quote notifications are on for this device.' : notifReason();
+}
+const askPermission = () => new Promise(res => {
+  try { const p = Notification.requestPermission(res); if (p && p.then) p.then(res); } catch (e) { res(Notification.permission); }
+});
+$('#sEnable').onclick = async () => {
+  if (state.settings.notify) { state.settings.notify = false; save(); return notifNote(); }
+  if (!('Notification' in window) || !window.isSecureContext) return notifNote();
+  if (Notification.permission === 'default') await askPermission();
+  state.settings.notify = Notification.permission === 'granted';
+  save(); notifNote();
+  if (state.settings.notify) notify('Habit Tracker', 'Notifications are on 🎉', 'test');
+};
 $('#settingsBtn').onclick = () => {
   $('#sMode').value = state.settings.quoteMode;
   $('#sQTime').value = state.settings.quoteTime;
-  $('#sNotify').value = state.settings.notify ? '1' : '0';
   notifNote();
   $('#setDlg').showModal();
 };
-$('#sClose').onclick = async () => {
+$('#sClose').onclick = () => {
   state.settings.quoteMode = $('#sMode').value;
   state.settings.quoteTime = $('#sQTime').value || '08:00';
-  const want = $('#sNotify').value === '1';
-  if (want && 'Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
-  state.settings.notify = want && 'Notification' in window && Notification.permission === 'granted';
-  if (want && !state.settings.notify) alert('Notification permission was not granted.');
   save(); render(); $('#setDlg').close();
 };
 $('#sTest').onclick = async () => {
-  if (!('Notification' in window)) return alert('Notifications not supported here.');
-  if (Notification.permission === 'default') await Notification.requestPermission();
+  if (!('Notification' in window)) return notifNote();
+  if (Notification.permission === 'default') await askPermission();
   if (Notification.permission !== 'granted') return notifNote();
+  state.settings.notify = true; save(); notifNote();
   notify('Habit Tracker', 'Notifications are working 🎉', 'test');
 };
 

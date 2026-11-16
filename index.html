@@ -156,7 +156,7 @@ input[type=time]{display:block;text-align:left}
   <select id="sMode"><option value="minute">New quote every minute &amp; on refresh</option><option value="daily">New quote every day</option><option value="hourly">New quote every hour</option><option value="off">Off</option></select>
   <label>Daily quote notification time</label><input id="sQTime" type="time">
   <label>Notifications</label>
-  <select id="sNotify"><option value="0">Off</option><option value="1">On (habit reminders + quotes)</option></select>
+  <button id="sEnable" type="button" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-weight:600">Enable notifications</button>
   <p class="note" id="notifNote"></p>
   <div class="actions"><button id="sTest" type="button">Test</button><button id="sClose" class="primary" type="button">Done</button></div>
   <p class="note">Reminders fire while the app is open or running in the background. For best results, install it to your home screen (Share → Add to Home Screen) and keep it open.</p>
@@ -165,7 +165,7 @@ input[type=time]{display:block;text-align:left}
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 <script src="sync.js?v=1"></script>
 </body>
 </html>
