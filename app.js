@@ -52,20 +52,24 @@ function defaults() {
   return {
     habits: [{ id: uid(), name: '50 Pushups', emoji: '💪', days: [0, 1, 2, 3, 4, 5, 6], time: '09:00', target: 50, step: 10 }],
     log: {}, fired: {}, firedDay: '',
-    settings: { quoteMode: 'daily', quoteTime: '08:00', notify: false }
+    settings: { quoteMode: 'minute', quoteTime: '08:00', notify: false, quoteMinuteMigrated: true }
   };
 }
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
-    if (s && s.habits) return Object.assign(defaults(), s, { settings: Object.assign(defaults().settings, s.settings) });
+    if (s && s.habits) {
+      const st = Object.assign(defaults().settings, s.settings);
+      if (!(s.settings && s.settings.quoteMinuteMigrated)) { if (st.quoteMode !== 'off') st.quoteMode = 'minute'; st.quoteMinuteMigrated = true; }
+      return Object.assign(defaults(), s, { settings: st });
+    }
   } catch (e) {}
   return defaults();
 }
 let state = load();
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} if (window.cloudPush) window.cloudPush(); };
 
-let view = 'today', weekOffset = 0;
+let view = 'today', weekOffset = 0, monthOffset = 0, histHabit = 'all', startCache = {};
 let renderedDay = keyOf(new Date());
 let quoteShift = 0;
 let editingId = null;
@@ -141,7 +145,21 @@ function goalHTML(h) {
 }
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+// 'minute' mode: random quote, new one on every page load and every 60s while the app is open
+let liveIdx = Math.floor(Math.random() * QUOTES.length), liveAt = Date.now();
+function newLiveQuote() {
+  let i; do { i = Math.floor(Math.random() * QUOTES.length); } while (i === liveIdx && QUOTES.length > 1);
+  liveIdx = i; liveAt = Date.now();
+}
+function renderQuote() {
+  const q = $('#quote');
+  q.hidden = state.settings.quoteMode === 'off';
+  if (q.hidden) return;
+  const [t, a] = currentQuote();
+  $('#qText').textContent = `“${t}”`; $('#qAuthor').textContent = '— ' + a;
+}
 function currentQuote() {
+  if (state.settings.quoteMode === 'minute') return QUOTES[liveIdx];
   const now = new Date();
   const base = state.settings.quoteMode === 'hourly'
     ? Math.floor(now.getTime() / 3600000)
@@ -153,9 +171,7 @@ function render() {
   const now = new Date();
   renderedDay = keyOf(now);
   $('#date').textContent = now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-  const q = $('#quote');
-  q.hidden = state.settings.quoteMode === 'off';
-  if (!q.hidden) { const [t, a] = currentQuote(); $('#qText').textContent = `“${t}”`; $('#qAuthor').textContent = '— ' + a; }
+  renderQuote();
   const todays = state.habits.filter(h => scheduled(h, now));
   const others = state.habits.filter(h => !scheduled(h, now));
   const doneN = todays.filter(h => isDone(h, renderedDay)).length;
@@ -163,7 +179,9 @@ function render() {
   $('#today').innerHTML = todays.map(h => habitHTML(h, true)).join('');
   $('#later').innerHTML = others.map(h => habitHTML(h, false)).join('');
   $('#laterH').hidden = !others.length;
+  startCache = {};
   if (view === 'week') renderWeek();
+  if (view === 'hist') renderHistory();
 }
 
 document.addEventListener('click', e => {
@@ -178,13 +196,14 @@ document.addEventListener('click', e => {
   else if (act === 'edit') openHabit(h);
   else if (act === 'newgoal') { h.goal = { months: h.goal.months, start: keyOf(new Date()) }; save(); render(); }
 });
-$('#qNext').onclick = () => { quoteShift++; render(); };
+$('#qNext').onclick = () => { if (state.settings.quoteMode === 'minute') newLiveQuote(); else quoteShift++; renderQuote(); };
 
 // ---------- weekly summary ----------
 function habitStart(h) {
   if (h.created) return h.created;
+  if (startCache[h.id]) return startCache[h.id];
   const ks = Object.keys(state.log).filter(k => state.log[k][h.id]).sort();
-  return ks.length ? ks[0] : keyOf(new Date());
+  return (startCache[h.id] = ks.length ? ks[0] : keyOf(new Date()));
 }
 function weekStats(off) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -235,14 +254,72 @@ function renderWeek() {
   $('#wkPrev').onclick = () => { weekOffset--; renderWeek(); };
   $('#wkNext').onclick = () => { if (weekOffset < 0) { weekOffset++; renderWeek(); } };
 }
+// ---------- streak calendar / history ----------
+function dayStatus(h, d, today) {
+  const k = keyOf(d), hs = h ? [h] : state.habits;
+  let s = 0, dn = 0, part = false;
+  hs.forEach(x => {
+    if (!scheduled(x, d) || k < habitStart(x)) return;
+    s++; if (isDone(x, k)) dn++; else if (countOn(x, k) > 0) part = true;
+  });
+  if (!s) return 'na';
+  if (d > today) return 'fut';
+  if (dn === s) return 'ok';
+  const some = dn > 0 || part;
+  return d.getTime() === today.getTime() ? (some ? 'part' : 'now') : (some ? 'part' : 'miss');
+}
+function streakStats(h) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const hs = h ? [h] : state.habits;
+  if (!hs.length) return { cur: 0, best: 0, ok: 0, rate: null };
+  let cur = 0, best = 0, ok = 0, tot = 0;
+  for (const d = parseKey(hs.map(habitStart).sort()[0]); d <= today; d.setDate(d.getDate() + 1)) {
+    const st = dayStatus(h, d, today);
+    if (st === 'na') continue;
+    if (st === 'ok') { cur++; ok++; tot++; best = Math.max(best, cur); }
+    else if (d.getTime() !== today.getTime()) { cur = 0; tot++; } // today still pending: doesn't break the streak
+  }
+  return { cur, best, ok, rate: tot ? Math.round(ok / tot * 100) : null };
+}
+function renderHistory() {
+  if (histHabit !== 'all' && !state.habits.find(x => x.id === histHabit)) histHabit = 'all';
+  const h = histHabit === 'all' ? null : state.habits.find(x => x.id === histHabit);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const m = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
+  const dim = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
+  const st = streakStats(h);
+  let cells = '';
+  for (let i = 0; i < m.getDay(); i++) cells += '<div></div>';
+  for (let n = 1; n <= dim; n++) {
+    const d = new Date(m.getFullYear(), m.getMonth(), n);
+    cells += `<div class="d ${dayStatus(h, d, today)} ${d.getTime() === today.getTime() ? 'today' : ''}" title="${keyOf(d)}">${n}</div>`;
+  }
+  $('#histView').innerHTML = `
+    <select id="histSel" class="hist-sel"><option value="all">All habits</option>${state.habits.map(x => `<option value="${x.id}" ${x.id === histHabit ? 'selected' : ''}>${esc(x.emoji || '')} ${esc(x.name)}</option>`).join('')}</select>
+    <div class="stats4">
+      <div class="stat"><strong>🔥 ${st.cur}</strong><span>current streak</span></div>
+      <div class="stat"><strong>🏅 ${st.best}</strong><span>best streak</span></div>
+      <div class="stat"><strong>${st.ok}</strong><span>days done</span></div>
+      <div class="stat"><strong>${st.rate === null ? '—' : st.rate + '%'}</strong><span>success rate</span></div>
+    </div>
+    <div class="wk-nav"><button id="mPrev" aria-label="Previous month">‹</button><b>${m.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</b><button id="mNext" aria-label="Next month" ${monthOffset >= 0 ? 'disabled' : ''}>›</button></div>
+    <div class="cal"><div class="grid">${DAYS.map(x => `<div class="dh">${x}</div>`).join('')}${cells}</div>
+      <div class="legend"><span><i style="background:var(--ok)"></i>Done</span><span><i style="background:var(--warn)"></i>Partial</span><span><i style="background:rgba(239,68,68,.35)"></i>Missed</span></div></div>`;
+  $('#histSel').onchange = e => { histHabit = e.target.value; renderHistory(); };
+  $('#mPrev').onclick = () => { monthOffset--; renderHistory(); };
+  $('#mNext').onclick = () => { if (monthOffset < 0) { monthOffset++; renderHistory(); } };
+}
 function setView(v) {
-  view = v; weekOffset = 0;
-  $('#tabToday').classList.toggle('on', v === 'today'); $('#tabWeek').classList.toggle('on', v === 'week');
-  $('#todayView').hidden = v !== 'today'; $('#weekView').hidden = v !== 'week'; $('#addBtn').hidden = v !== 'today';
+  view = v; weekOffset = 0; monthOffset = 0;
+  [['today', '#tabToday', '#todayView'], ['week', '#tabWeek', '#weekView'], ['hist', '#tabHist', '#histView']].forEach(([n, t, p]) => {
+    $(t).classList.toggle('on', v === n); $(p).hidden = v !== n;
+  });
+  $('#addBtn').hidden = v !== 'today';
   render();
 }
 $('#tabToday').onclick = () => setView('today');
 $('#tabWeek').onclick = () => setView('week');
+$('#tabHist').onclick = () => setView('hist');
 
 // ---------- habit dialog ----------
 $('#fDays').innerHTML = DAYS.map((d, i) => `<label><input type="checkbox" value="${i}"><span>${d}</span></label>`).join('');
@@ -332,11 +409,16 @@ function tick() {
   });
   const m = state.settings.quoteMode;
   if (m === 'hourly' && now.getMinutes() < 5) fire('qh' + now.getHours(), () => { const [t, a] = currentQuote(); notify('Motivation', `${t} — ${a}`, 'quote'); });
-  if (m === 'daily' && hm >= state.settings.quoteTime && now - new Date(`${today}T${state.settings.quoteTime}`) < 3600000)
+  if ((m === 'daily' || m === 'minute') && hm >= state.settings.quoteTime && now - new Date(`${today}T${state.settings.quoteTime}`) < 3600000)
     fire('qd', () => { const [t, a] = currentQuote(); notify('Motivation', `${t} — ${a}`, 'quote'); });
 }
 setInterval(tick, 20000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { tick(); render(); } });
+setInterval(() => { if (state.settings.quoteMode === 'minute' && !document.hidden) { newLiveQuote(); renderQuote(); } }, 60000);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  if (state.settings.quoteMode === 'minute' && Date.now() - liveAt >= 60000) newLiveQuote();
+  tick(); render();
+});
 
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 render(); tick();

@@ -13,7 +13,7 @@
   }
   const snapshotData = () => JSON.parse(JSON.stringify({
     habits: state.habits, log: state.log,
-    quote: { mode: state.settings.quoteMode, time: state.settings.quoteTime }, updated: Date.now()
+    quote: { mode: state.settings.quoteMode, time: state.settings.quoteTime, v: 2 }, updated: Date.now()
   }));
 
   // first sign-in on this device: union habits, max the daily counts
@@ -29,7 +29,7 @@
   function apply(d) {
     applying = true;
     state.habits = d.habits || []; state.log = d.log || {};
-    if (d.quote) { state.settings.quoteMode = d.quote.mode; state.settings.quoteTime = d.quote.time; }
+    if (d.quote && (d.quote.v >= 2 || !state.settings.quoteMinuteMigrated)) { state.settings.quoteMode = d.quote.mode; state.settings.quoteTime = d.quote.time; }
     save(); applying = false; render();
   }
   function pushNow() {

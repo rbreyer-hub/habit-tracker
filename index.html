@@ -62,7 +62,7 @@ input[type=time]{display:block;text-align:left}
 .actions button{flex:1;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);font-weight:600}
 .actions .primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .actions .danger{color:#ef4444}
-.tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:14px}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:14px}
 .tabs button{border:0;background:none;padding:9px;border-radius:9px;font-weight:600;color:var(--mute)}
 .tabs button.on{background:var(--accent);color:#fff}
 .wk-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
@@ -83,6 +83,19 @@ input[type=time]{display:block;text-align:left}
 .c.ok{background:var(--ok);color:#fff}.c.part{background:var(--warn);color:#fff}
 .c.miss{background:rgba(239,68,68,.15);color:#ef4444}.c.na{color:var(--line)}
 .c.fut{border:1px dashed var(--line)}.c.now{border:2px solid var(--accent)}
+.hist-sel{margin-bottom:12px}
+.stats4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.stats4 .stat strong{font-size:1.25rem}
+.cal{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px}
+.cal .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cal .dh{text-align:center;font-size:.72rem;color:var(--mute)}
+.cal .d{aspect-ratio:1;border-radius:9px;display:grid;place-items:center;font-size:.8rem;font-weight:600}
+.cal .d.ok{background:var(--ok);color:#fff}.cal .d.part{background:var(--warn);color:#fff}
+.cal .d.miss{background:rgba(239,68,68,.15);color:#ef4444}.cal .d.na{color:var(--mute);opacity:.5}
+.cal .d.fut{border:1px dashed var(--line);color:var(--mute)}.cal .d.now{border:2px solid var(--accent)}
+.cal .d.today{box-shadow:0 0 0 2px var(--accent)}
+.legend{display:flex;gap:14px;justify-content:center;margin-top:12px;font-size:.75rem;color:var(--mute)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 .goal{margin-top:12px;font-size:.82rem;color:var(--mute)}
 .goal .bar i{background:var(--warn)}
 .goal.won{display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--text);font-weight:600}
@@ -96,7 +109,7 @@ input[type=time]{display:block;text-align:left}
     <div><h1>Habits</h1><div class="date" id="date"></div><div class="date" id="syncStatus"></div></div>
     <button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙️</button>
   </header>
-  <nav class="tabs"><button id="tabToday" class="on">Today</button><button id="tabWeek">Week</button></nav>
+  <nav class="tabs"><button id="tabToday" class="on">Today</button><button id="tabWeek">Week</button><button id="tabHist">History</button></nav>
   <div id="todayView">
   <section class="quote" id="quote" hidden><p id="qText"></p><small><span id="qAuthor"></span><button id="qNext">New quote</button></small></section>
   <p class="progress" id="progress"></p>
@@ -105,6 +118,7 @@ input[type=time]{display:block;text-align:left}
   <div id="later" class="later"></div>
   </div>
   <div id="weekView" hidden></div>
+  <div id="histView" hidden></div>
 </main>
 <button class="fab" id="addBtn" aria-label="Add habit">+</button>
 
@@ -139,7 +153,7 @@ input[type=time]{display:block;text-align:left}
   <label>Account &amp; sync</label>
   <div class="two" style="align-items:center"><span id="acctText" class="note" style="margin:0">Not signed in</span><button id="acctBtn" type="button" style="padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-weight:600">Sign in with Google</button></div>
   <label>Motivational quotes</label>
-  <select id="sMode"><option value="daily">New quote every day</option><option value="hourly">New quote every hour</option><option value="off">Off</option></select>
+  <select id="sMode"><option value="minute">New quote every minute &amp; on refresh</option><option value="daily">New quote every day</option><option value="hourly">New quote every hour</option><option value="off">Off</option></select>
   <label>Daily quote notification time</label><input id="sQTime" type="time">
   <label>Notifications</label>
   <select id="sNotify"><option value="0">Off</option><option value="1">On (habit reminders + quotes)</option></select>
@@ -151,7 +165,7 @@ input[type=time]{display:block;text-align:left}
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="app.js?v=4"></script>
+<script src="app.js?v=6"></script>
 <script src="sync.js?v=1"></script>
 </body>
 </html>
