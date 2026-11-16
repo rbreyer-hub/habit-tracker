@@ -65,7 +65,7 @@ input,select{width:100%;font:inherit;padding:10px;border-radius:10px;border:1px 
 <body>
 <main>
   <header>
-    <div><h1>Habits</h1><div class="date" id="date"></div></div>
+    <div><h1>Habits</h1><div class="date" id="date"></div><div class="date" id="syncStatus"></div></div>
     <button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙️</button>
   </header>
   <section class="quote" id="quote" hidden><p id="qText"></p><small><span id="qAuthor"></span><button id="qNext">New quote</button></small></section>
@@ -100,6 +100,8 @@ input,select{width:100%;font:inherit;padding:10px;border-radius:10px;border:1px 
 
 <dialog id="setDlg">
   <h3 style="margin:0">Settings</h3>
+  <label>Account &amp; sync</label>
+  <div class="two" style="align-items:center"><span id="acctText" class="note" style="margin:0">Not signed in</span><button id="acctBtn" type="button" style="padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-weight:600">Sign in with Google</button></div>
   <label>Motivational quotes</label>
   <select id="sMode"><option value="daily">New quote every day</option><option value="hourly">New quote every hour</option><option value="off">Off</option></select>
   <label>Daily quote notification time</label><input id="sQTime" type="time">
@@ -109,6 +111,11 @@ input,select{width:100%;font:inherit;padding:10px;border-radius:10px;border:1px 
   <div class="actions"><button id="sTest" type="button">Test</button><button id="sClose" class="primary" type="button">Done</button></div>
   <p class="note">Reminders fire while the app is open or running in the background. For best results, install it to your home screen (Share → Add to Home Screen) and keep it open.</p>
 </dialog>
-<script src="app.js?v=1"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="app.js?v=2"></script>
+<script src="sync.js?v=1"></script>
 </body>
 </html>

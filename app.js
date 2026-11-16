@@ -63,7 +63,7 @@ function load() {
   return defaults();
 }
 let state = load();
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} if (window.cloudPush) window.cloudPush(); };
 
 let renderedDay = keyOf(new Date());
 let quoteShift = 0;
