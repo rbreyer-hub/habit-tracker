@@ -96,6 +96,9 @@ input[type=time]{display:block;text-align:left}
 .cal .d.today{box-shadow:0 0 0 2px var(--accent)}
 .legend{display:flex;gap:14px;justify-content:center;margin-top:12px;font-size:.75rem;color:var(--mute)}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chips button{padding:6px 14px;border-radius:99px;border:1px solid var(--line);background:var(--bg);font-weight:600;min-height:34px}
+.chips button.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .goal{margin-top:12px;font-size:.82rem;color:var(--mute)}
 .goal .bar i{background:var(--warn)}
 .goal.won{display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--text);font-weight:600}
@@ -133,10 +136,14 @@ input[type=time]{display:block;text-align:left}
     <label>Repeat on</label>
     <div class="days" id="fDays"></div>
     <div class="two">
-      <div><label>Daily goal</label><input id="fTarget" type="number" min="1" max="10000" value="1"></div>
-      <div><label>Quick-add step</label><input id="fStep" type="number" min="1" max="1000" value="10"></div>
+      <div><label>Daily goal (amount)</label><input id="fTarget" type="number" inputmode="decimal" min="1" step="any" value="1"></div>
+      <div><label>Unit</label><select id="fUnit"></select></div>
     </div>
-    <p class="note">Daily goal 1 = a simple check; higher (e.g. 50) shows progress with quick-add buttons.</p>
+    <input id="fCustomUnit" maxlength="14" placeholder="Your unit, e.g. laps" hidden style="margin-top:8px">
+    <label>Quick-add step</label>
+    <input id="fStep" type="number" inputmode="decimal" min="0.1" step="any" value="10">
+    <div class="chips" id="fChips"></div>
+    <p class="note">A goal of 1 is a simple check. A bigger goal (50 reps, 30 minutes…) shows progress with quick-add buttons.</p>
     <label>Long-term challenge</label>
     <select id="fGoal"><option value="0">None</option><option value="1">1 month</option><option value="3">3 months</option><option value="6">6 months</option><option value="12">1 year</option></select>
     <p class="note">Complete the habit on every scheduled day in the period to finish the challenge. Missed days push the finish out.</p>
@@ -169,7 +176,7 @@ input[type=time]{display:block;text-align:left}
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-messaging-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="app.js?v=10"></script>
+<script src="app.js?v=11"></script>
 <script src="sync.js?v=3"></script>
 <script src="push.js?v=1"></script>
 </body>

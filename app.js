@@ -75,6 +75,19 @@ let quoteShift = 0;
 let editingId = null;
 
 const target = h => Math.max(1, h.target || 1);
+const UNITS = {
+  reps:    { label: 'Reps / times', abbr: 'reps',   presets: [5, 10, 20, 25] },
+  minutes: { label: 'Minutes',      abbr: 'min',    presets: [5, 10, 15, 30] },
+  hours:   { label: 'Hours',        abbr: 'hr',     presets: [0.5, 1, 2] },
+  pages:   { label: 'Pages',        abbr: 'pages',  presets: [1, 5, 10, 20] },
+  glasses: { label: 'Glasses',      abbr: 'glasses', presets: [1, 2, 4] },
+  miles:   { label: 'Miles',        abbr: 'mi',     presets: [0.5, 1, 2, 5] },
+  km:      { label: 'Kilometers',   abbr: 'km',     presets: [0.5, 1, 2, 5] },
+  steps:   { label: 'Steps',        abbr: 'steps',  presets: [500, 1000, 2500, 5000] },
+  custom:  { label: 'Custom…',      abbr: '',       presets: [1, 5, 10, 25] }
+};
+const fmt = n => +(+n).toFixed(2);
+const unitOf = h => h.unit === 'custom' ? (h.customUnit || '') : h.unit ? (UNITS[h.unit] ? UNITS[h.unit].abbr : h.unit) : '';
 const countOn = (h, key) => (state.log[key] && state.log[key][h.id]) || 0;
 const isDone = (h, key) => countOn(h, key) >= target(h);
 const scheduled = (h, d) => h.days.includes(d.getDay());
@@ -93,7 +106,7 @@ function goalInfo(h) {
 function setCount(h, n) {
   const key = keyOf(new Date());
   state.log[key] = state.log[key] || {};
-  state.log[key][h.id] = Math.max(0, Math.min(target(h), n));
+  state.log[key][h.id] = Math.max(0, Math.min(target(h), Math.round(n * 100) / 100));
   const gi = goalInfo(h);
   const justWon = gi && !h.goal.completedOn && gi.done >= gi.required;
   if (justWon) h.goal.completedOn = key;
@@ -123,7 +136,7 @@ function weekDots(h) {
 
 function habitHTML(h, active) {
   const key = keyOf(new Date()), c = countOn(h, key), t = target(h), done = isDone(h, key), st = streak(h);
-  const meta = [t > 1 ? `${c}/${t}` : '', h.time ? '⏰ ' + h.time : '', st ? `🔥 ${st}` : ''].filter(Boolean).join(' · ');
+  const meta = [t > 1 ? `${fmt(c)}/${fmt(t)} ${unitOf(h)}`.trim() : '', h.time ? '⏰ ' + h.time : '', st ? `🔥 ${st}` : ''].filter(Boolean).join(' · ');
   return `<div class="habit ${done ? 'done' : ''}" data-id="${h.id}">
     <div class="row">
       <button class="check" data-act="toggle" aria-label="Toggle done">${done ? '✓' : h.emoji || ''}</button>
@@ -132,7 +145,7 @@ function habitHTML(h, active) {
     ${t > 1 ? `<div class="bar"><i style="width:${Math.min(100, c / t * 100)}%"></i></div>` : ''}
     ${goalHTML(h)}
     <div class="tools">
-      ${active && t > 1 ? `<button data-act="add">+${h.step || 10}</button><button data-act="sub">−${h.step || 10}</button>` : ''}
+      ${active && t > 1 ? `<button data-act="add">+${fmt(h.step || 10)} ${unitOf(h)}</button><button data-act="sub">−${fmt(h.step || 10)}</button>` : ''}
       <div class="dots">${weekDots(h)}</div>
     </div>
   </div>`;
@@ -238,7 +251,7 @@ function renderWeek() {
   const head = '<div></div>' + w.days.map(d => `<div class="dh ${d.getTime() === w.today.getTime() ? 'now' : ''}">${DAYS[d.getDay()]}<br>${d.getDate()}</div>`).join('');
   const body = w.rows.map(r => {
     const pct = r.s ? Math.round(r.dn / r.s * 100) + '%' : '—';
-    const reps = target(r.h) > 1 && r.reps ? ` · ${r.reps} total` : '';
+    const reps = target(r.h) > 1 && r.reps ? ` · ${fmt(r.reps)} ${unitOf(r.h)} total`.replace(/ +total/, ' total') : '';
     return `<div class="hn">${esc(r.h.emoji || '')} ${esc(r.h.name)}<small>${r.dn}/${r.s} · ${pct}${reps}</small></div>` +
       r.cells.map(c => `<div class="c ${c.cls}">${c.t}</div>`).join('');
   }).join('');
@@ -330,12 +343,26 @@ function openHabit(h) {
   $('#fEmoji').value = h ? h.emoji : '✅';
   $('#fTime').value = h ? h.time : '';
   $('#fTarget').value = h ? target(h) : 1;
-  $('#fStep').value = h ? h.step || 10 : 10;
+  $('#fStep').value = h ? fmt(h.step || 10) : 10;
+  $('#fUnit').value = h && h.unit ? h.unit : 'reps';
+  $('#fCustomUnit').value = h && h.customUnit || '';
+  unitUI(false);
   $('#fGoal').value = h && h.goal ? h.goal.months : 0;
   document.querySelectorAll('#fDays input').forEach(i => i.checked = h ? h.days.includes(+i.value) : true);
   $('#fDelete').hidden = !h;
   $('#habitDlg').showModal();
 }
+$('#fUnit').innerHTML = Object.entries(UNITS).map(([k, u]) => `<option value="${k}">${u.label}</option>`).join('');
+function unitUI(setDefault) {
+  const u = $('#fUnit').value, ps = UNITS[u].presets;
+  $('#fCustomUnit').hidden = u !== 'custom';
+  if (setDefault) $('#fStep').value = ps[Math.min(1, ps.length - 1)];
+  const cur = parseFloat($('#fStep').value);
+  $('#fChips').innerHTML = ps.map(p => `<button type="button" data-p="${p}" class="${p === cur ? 'on' : ''}">${p}${UNITS[u].abbr ? ' ' + UNITS[u].abbr : ''}</button>`).join('');
+}
+$('#fUnit').onchange = () => unitUI(true);
+$('#fStep').oninput = () => unitUI(false);
+$('#fChips').onclick = e => { const b = e.target.closest('button'); if (b) { $('#fStep').value = b.dataset.p; unitUI(false); } };
 $('#addBtn').onclick = () => openHabit(null);
 $('#fCancel').onclick = () => $('#habitDlg').close();
 $('#fDelete').onclick = () => {
@@ -345,9 +372,11 @@ $('#fDelete').onclick = () => {
 };
 $('#habitForm').onsubmit = () => {
   const days = [...document.querySelectorAll('#fDays input:checked')].map(i => +i.value);
+  const unitVal = $('#fUnit').value;
   const data = {
+    unit: unitVal, customUnit: unitVal === 'custom' ? $('#fCustomUnit').value.trim() : '',
     name: $('#fName').value.trim(), emoji: $('#fEmoji').value.trim(), time: $('#fTime').value,
-    target: Math.max(1, +$('#fTarget').value || 1), step: Math.max(1, +$('#fStep').value || 10),
+    target: Math.max(1, parseFloat($('#fTarget').value) || 1), step: Math.max(0.1, parseFloat($('#fStep').value) || 10),
     days: days.length ? days : [0, 1, 2, 3, 4, 5, 6]
   };
   if (!data.name) return;
@@ -428,7 +457,7 @@ function tick() {
   const fire = (k, fn) => { if (!state.fired[k]) { state.fired[k] = 1; save(); fn(); } };
   state.habits.forEach(h => {
     if (h.time && scheduled(h, now) && hm >= h.time && !isDone(h, today) && now - new Date(`${today}T${h.time}`) < 3600000)
-      fire('h' + h.id, () => notify(`${h.emoji || ''} ${h.name}`.trim(), target(h) > 1 ? `Goal: ${target(h)}. Let's go!` : "Time to check it off!", h.id));
+      fire('h' + h.id, () => notify(`${h.emoji || ''} ${h.name}`.trim(), target(h) > 1 ? `Goal: ${fmt(target(h))}${unitOf(h) ? ' ' + unitOf(h) : ''}. Let's go!` : "Time to check it off!", h.id));
   });
   const m = state.settings.quoteMode;
   if (m === 'hourly' && now.getMinutes() < 5) fire('qh' + now.getHours(), () => { const [t, a] = currentQuote(); notify('Motivation', `${t} — ${a}`, 'quote'); });

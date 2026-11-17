@@ -11,6 +11,8 @@ function localParts(tz, now) {
   const hour = +p.hour % 24;
   return { date: `${p.year}-${p.month}-${p.day}`, hour, minute: +p.minute, dow: DOW.indexOf(p.weekday) };
 }
+const ABBR = { reps: 'reps', minutes: 'min', hours: 'hr', pages: 'pages', glasses: 'glasses', miles: 'mi', km: 'km', steps: 'steps' };
+const unitText = h => h.unit === 'custom' ? (h.customUnit || '') : h.unit ? (ABBR[h.unit] || h.unit) : '';
 const mins = hm => +hm.slice(0, 2) * 60 + +hm.slice(3, 5);
 const hash = s => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; };
 
@@ -27,7 +29,7 @@ function plan(data, device, now) {
     if (diff < 0 || diff >= WINDOW) return;
     const done = ((data.log || {})[p.date] || {})[h.id] || 0;
     if (done >= Math.max(1, h.target || 1)) return;
-    add('h' + h.id, `${h.emoji || ''} ${h.name}`.trim(), (h.target || 1) > 1 ? `Goal: ${h.target}. Let's go!` : 'Time to check it off!', h.id);
+    add('h' + h.id, `${h.emoji || ''} ${h.name}`.trim(), (h.target || 1) > 1 ? `Goal: ${+(+h.target).toFixed(2)}${unitText(h) ? ' ' + unitText(h) : ''}. Let's go!` : 'Time to check it off!', h.id);
   });
 
   const q = data.quote || {}, mode = q.mode || 'daily';

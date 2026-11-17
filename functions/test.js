@@ -20,3 +20,6 @@ assert.strictEqual(at('2026-11-16T14:00:00Z', { tz: 'UTC' }).out.length, 0, 'UTC
 assert.deepStrictEqual(at('2026-11-16T09:00:00Z', { tz: 'UTC' }).out.map(o => o.key), ['hp'], 'UTC device at 09:00');
 assert.deepStrictEqual(at('2026-11-16T10:02:00Z', { tz: 'UTC' }, { ...data, quote: { mode: 'hourly' } }).out.map(o => o.key), ['qh10'], 'hourly quote');
 console.log('all logic tests passed');
+const d2 = { ...data, habits: [{ id: 'm', name: 'Meditate', emoji: '🧘', days: [1], time: '09:00', target: 30, unit: 'minutes' }] };
+assert.strictEqual(plan(d2, { tz: 'America/New_York' }, new Date('2026-11-16T14:00:00Z')).out[0].body, "Goal: 30 min. Let's go!");
+console.log('unit message ok');
