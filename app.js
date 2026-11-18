@@ -136,7 +136,7 @@ function weekDots(h) {
 
 function habitHTML(h, active) {
   const key = keyOf(new Date()), c = countOn(h, key), t = target(h), done = isDone(h, key), st = streak(h);
-  const meta = [t > 1 ? `${fmt(c)}/${fmt(t)} ${unitOf(h)}`.trim() : '', h.time ? '⏰ ' + h.time : '', st ? `🔥 ${st}` : ''].filter(Boolean).join(' · ');
+  const meta = [t > 1 ? `${fmt(c)}/${fmt(t)} ${unitOf(h)}`.trim() : '', h.time ? '⏰ ' + h.time : '', `🔥 ${st}`].filter(Boolean).join(' · ');
   return `<div class="habit ${done ? 'done' : ''}" data-id="${h.id}">
     <div class="row">
       <button class="check" data-act="toggle" aria-label="Toggle done">${done ? '✓' : h.emoji || ''}</button>
@@ -263,7 +263,8 @@ function renderWeek() {
       <div class="stat"><strong>${w.perfect}</strong><span>perfect days</span></div>
     </div>
     <p class="wk-msg">${msg}</p>
-    ${w.rows.length ? `<div class="wk">${head}${body}</div><p class="hint">Tap a day to edit it.</p>` : ''}`;
+    ${w.rows.length ? `<div class="wk">${head}${body}</div><p class="hint">Tap a day to edit it. Days before a habit started can be filled in too.</p>` : `<p class="wk-msg">No habits yet.</p><button class="link" id="wkAdd" style="display:block;margin:0 auto">+ Add your first habit</button>`}`;
+  if ($('#wkAdd')) $('#wkAdd').onclick = () => { setView('today'); openHabit(null); };
   $('#wkPrev').onclick = () => { weekOffset--; renderWeek(); };
   $('#wkNext').onclick = () => { if (weekOffset < 0) { weekOffset++; renderWeek(); } };
 }
@@ -315,6 +316,7 @@ function renderHistory() {
       <div class="stat"><strong>${st.ok}</strong><span>days done</span></div>
       <div class="stat"><strong>${st.rate === null ? '—' : st.rate + '%'}</strong><span>success rate</span></div>
     </div>
+    <p class="hint" style="margin:-6px 0 12px">A day counts toward your streak once you finish that day's full goal. Today stays open until midnight.</p>
     <div class="wk-nav"><button id="mPrev" aria-label="Previous month">‹</button><b>${m.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</b><button id="mNext" aria-label="Next month" ${monthOffset >= 0 ? 'disabled' : ''}>›</button></div>
     <div class="cal"><div class="grid">${DAYS.map(x => `<div class="dh">${x}</div>`).join('')}${cells}</div>
       <p class="hint" style="margin:0 0 10px">Tap a day to edit it.</p><div class="legend"><span><i style="background:var(--ok)"></i>Done</span><span><i style="background:var(--warn)"></i>Partial</span><span><i style="background:rgba(239,68,68,.35)"></i>Missed</span></div></div>`;

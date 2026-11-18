@@ -79,10 +79,10 @@ input[type=time]{display:block;text-align:left}
 .wk .dh.now{color:var(--accent);font-weight:700}
 .wk .hn{min-width:0;font-size:.85rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wk .hn small{display:block;font-weight:400;color:var(--mute);font-size:.7rem}
-.c{height:34px;border-radius:8px;display:grid;place-items:center;font-size:.75rem;font-weight:600}
+.c{height:34px;border-radius:8px;display:grid;place-items:center;font-size:.75rem;font-weight:600;background:var(--bg);border:1px solid var(--line)}
 .c.ok{background:var(--ok);color:#fff}.c.part{background:var(--warn);color:#fff}
-.c.miss{background:rgba(239,68,68,.15);color:#ef4444}.c.na{color:var(--line)}
-.c.fut{border:1px dashed var(--line)}.c.now{border:2px solid var(--accent)}
+.c.miss{background:rgba(239,68,68,.15);color:#ef4444}.c.na{color:var(--mute);opacity:.55}
+.c.fut{border:1px dashed var(--mute);opacity:.5}.c.now{border:2px solid var(--accent)}
 .hist-sel{margin-bottom:12px}
 .stats4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
 .stats4 .stat strong{font-size:1.25rem}
@@ -187,7 +187,7 @@ input[type=time]{display:block;text-align:left}
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-messaging-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="app.js?v=12"></script>
+<script src="app.js?v=14"></script>
 <script src="sync.js?v=3"></script>
 <script src="push.js?v=1"></script>
 </body>
