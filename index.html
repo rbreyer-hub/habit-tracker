@@ -96,6 +96,9 @@ input[type=time]{display:block;text-align:left}
 .cal .d.today{box-shadow:0 0 0 2px var(--accent)}
 .legend{display:flex;gap:14px;justify-content:center;margin-top:12px;font-size:.75rem;color:var(--mute)}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.link{background:none;border:0;color:var(--accent);font-weight:600;padding:2px 0;margin:0 0 12px;text-align:left}
+[data-date]{cursor:pointer}
+.hint{text-align:center;color:var(--mute);font-size:.78rem;margin:10px 0 0}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .chips button{padding:6px 14px;border-radius:99px;border:1px solid var(--line);background:var(--bg);font-weight:600;min-height:34px}
 .chips button.on{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -116,6 +119,7 @@ input[type=time]{display:block;text-align:left}
   <div id="todayView">
   <section class="quote" id="quote" hidden><p id="qText"></p><small><span id="qAuthor"></span><button id="qNext">New quote</button></small></section>
   <p class="progress" id="progress"></p>
+  <button class="link" id="yBtn">Forgot to check something off? Edit yesterday</button>
   <div id="today"></div>
   <h2 id="laterH" hidden>Not scheduled today</h2>
   <div id="later" class="later"></div>
@@ -124,6 +128,13 @@ input[type=time]{display:block;text-align:left}
   <div id="histView" hidden></div>
 </main>
 <button class="fab" id="addBtn" aria-label="Add habit">+</button>
+
+<dialog id="dayDlg">
+  <h3 id="dayTitle" style="margin:0 0 4px"></h3>
+  <p class="note" style="margin:0 0 12px">Mark what you did on this day.</p>
+  <div id="dayList"></div>
+  <div class="actions"><button class="primary" id="dayClose" type="button">Done</button></div>
+</dialog>
 
 <dialog id="habitDlg">
   <form method="dialog" id="habitForm">
@@ -176,7 +187,7 @@ input[type=time]{display:block;text-align:left}
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-messaging-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="app.js?v=11"></script>
+<script src="app.js?v=12"></script>
 <script src="sync.js?v=3"></script>
 <script src="push.js?v=1"></script>
 </body>

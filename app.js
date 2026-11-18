@@ -103,8 +103,8 @@ function goalInfo(h) {
   for (const d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) if (scheduled(h, d) && isDone(h, keyOf(d))) done++;
   return { done, required: Math.max(1, required), end, left: Math.max(0, Math.ceil((end - today) / 864e5)) };
 }
-function setCount(h, n) {
-  const key = keyOf(new Date());
+function setCount(h, n, key = keyOf(new Date())) {
+  if (n > 0 && key < habitStart(h)) h.created = key; // backdating before the habit's start moves its start earlier
   state.log[key] = state.log[key] || {};
   state.log[key][h.id] = Math.max(0, Math.min(target(h), Math.round(n * 100) / 100));
   const gi = goalInfo(h);
@@ -248,12 +248,12 @@ function renderWeek() {
   let delta = '';
   if (w.pct !== null && prev.pct !== null && weekOffset <= 0) { const dd = w.pct - prev.pct; delta = dd === 0 ? 'Same as the previous week.' : `${dd > 0 ? '▲' : '▼'} ${Math.abs(dd)}% vs the previous week.`; }
   const msg = w.pct === null ? 'Nothing scheduled yet this week.' : w.pct === 100 ? '🎉 Perfect so far — keep it going!' : w.pct >= 70 ? '💪 Strong week. ' + delta : w.pct >= 40 ? 'Solid start — push for more. ' + delta : 'Every check-in counts. Start fresh today. ' + delta;
-  const head = '<div></div>' + w.days.map(d => `<div class="dh ${d.getTime() === w.today.getTime() ? 'now' : ''}">${DAYS[d.getDay()]}<br>${d.getDate()}</div>`).join('');
+  const head = '<div></div>' + w.days.map(d => `<div class="dh ${d.getTime() === w.today.getTime() ? 'now' : ''}" ${d <= w.today ? `data-date="${keyOf(d)}"` : ''}>${DAYS[d.getDay()]}<br>${d.getDate()}</div>`).join('');
   const body = w.rows.map(r => {
     const pct = r.s ? Math.round(r.dn / r.s * 100) + '%' : '—';
     const reps = target(r.h) > 1 && r.reps ? ` · ${fmt(r.reps)} ${unitOf(r.h)} total`.replace(/ +total/, ' total') : '';
     return `<div class="hn">${esc(r.h.emoji || '')} ${esc(r.h.name)}<small>${r.dn}/${r.s} · ${pct}${reps}</small></div>` +
-      r.cells.map(c => `<div class="c ${c.cls}">${c.t}</div>`).join('');
+      r.cells.map((c, i) => `<div class="c ${c.cls}" ${w.days[i] <= w.today ? `data-date="${keyOf(w.days[i])}"` : ''}>${c.t}</div>`).join('');
   }).join('');
   $('#weekView').innerHTML = `
     <div class="wk-nav"><button id="wkPrev" aria-label="Previous week">‹</button><b>${label}<br><small class="date">${fmt(w.days[0])} – ${fmt(w.days[6])}</small></b><button id="wkNext" aria-label="Next week" ${weekOffset >= 0 ? 'disabled' : ''}>›</button></div>
@@ -263,7 +263,7 @@ function renderWeek() {
       <div class="stat"><strong>${w.perfect}</strong><span>perfect days</span></div>
     </div>
     <p class="wk-msg">${msg}</p>
-    ${w.rows.length ? `<div class="wk">${head}${body}</div>` : ''}`;
+    ${w.rows.length ? `<div class="wk">${head}${body}</div><p class="hint">Tap a day to edit it.</p>` : ''}`;
   $('#wkPrev').onclick = () => { weekOffset--; renderWeek(); };
   $('#wkNext').onclick = () => { if (weekOffset < 0) { weekOffset++; renderWeek(); } };
 }
@@ -305,7 +305,7 @@ function renderHistory() {
   for (let i = 0; i < m.getDay(); i++) cells += '<div></div>';
   for (let n = 1; n <= dim; n++) {
     const d = new Date(m.getFullYear(), m.getMonth(), n);
-    cells += `<div class="d ${dayStatus(h, d, today)} ${d.getTime() === today.getTime() ? 'today' : ''}" title="${keyOf(d)}">${n}</div>`;
+    cells += `<div class="d ${dayStatus(h, d, today)} ${d.getTime() === today.getTime() ? 'today' : ''}" title="${keyOf(d)}" ${d <= today ? `data-date="${keyOf(d)}"` : ''}>${n}</div>`;
   }
   $('#histView').innerHTML = `
     <select id="histSel" class="hist-sel"><option value="all">All habits</option>${state.habits.map(x => `<option value="${x.id}" ${x.id === histHabit ? 'selected' : ''}>${esc(x.emoji || '')} ${esc(x.name)}</option>`).join('')}</select>
@@ -317,7 +317,7 @@ function renderHistory() {
     </div>
     <div class="wk-nav"><button id="mPrev" aria-label="Previous month">‹</button><b>${m.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</b><button id="mNext" aria-label="Next month" ${monthOffset >= 0 ? 'disabled' : ''}>›</button></div>
     <div class="cal"><div class="grid">${DAYS.map(x => `<div class="dh">${x}</div>`).join('')}${cells}</div>
-      <div class="legend"><span><i style="background:var(--ok)"></i>Done</span><span><i style="background:var(--warn)"></i>Partial</span><span><i style="background:rgba(239,68,68,.35)"></i>Missed</span></div></div>`;
+      <p class="hint" style="margin:0 0 10px">Tap a day to edit it.</p><div class="legend"><span><i style="background:var(--ok)"></i>Done</span><span><i style="background:var(--warn)"></i>Partial</span><span><i style="background:rgba(239,68,68,.35)"></i>Missed</span></div></div>`;
   $('#histSel').onchange = e => { histHabit = e.target.value; renderHistory(); };
   $('#mPrev').onclick = () => { monthOffset--; renderHistory(); };
   $('#mNext').onclick = () => { if (monthOffset < 0) { monthOffset++; renderHistory(); } };
@@ -333,6 +333,40 @@ function setView(v) {
 $('#tabToday').onclick = () => setView('today');
 $('#tabWeek').onclick = () => setView('week');
 $('#tabHist').onclick = () => setView('hist');
+
+// ---------- day editor (backdating) ----------
+let dayKey = null;
+function renderDay() {
+  const d = parseKey(dayKey);
+  $('#dayTitle').textContent = d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  const hs = state.habits.filter(h => scheduled(h, d));
+  $('#dayList').innerHTML = hs.length ? hs.map(h => {
+    const c = countOn(h, dayKey), t = target(h), done = isDone(h, dayKey);
+    return `<div class="habit ${done ? 'done' : ''}" data-id="${h.id}"><div class="row">
+      <button class="check" data-dact="toggle" aria-label="Toggle done">${done ? '✓' : esc(h.emoji || '')}</button>
+      <div class="info"><div class="name">${esc(h.name)}</div><div class="meta">${t > 1 ? `${fmt(c)}/${fmt(t)} ${unitOf(h)}`.trim() : done ? 'Done' : 'Not done'}</div></div></div>
+      ${t > 1 ? `<div class="bar"><i style="width:${Math.min(100, c / t * 100)}%"></i></div><div class="tools"><button data-dact="add">+${fmt(h.step || 10)} ${unitOf(h)}</button><button data-dact="sub">−${fmt(h.step || 10)}</button></div>` : ''}
+    </div>`;
+  }).join('') : '<p class="note">No habits were scheduled on this day.</p>';
+}
+function openDay(key) {
+  if (key > keyOf(new Date())) return; // can't log the future
+  dayKey = key; renderDay(); $('#dayDlg').showModal();
+}
+$('#dayList').addEventListener('click', e => {
+  const b = e.target.closest('[data-dact]'); if (!b) return;
+  const h = state.habits.find(x => x.id === b.closest('.habit').dataset.id), c = countOn(h, dayKey);
+  const a = b.dataset.dact;
+  if (a === 'toggle') setCount(h, isDone(h, dayKey) ? 0 : target(h), dayKey);
+  else if (a === 'add') setCount(h, c + (h.step || 10), dayKey);
+  else if (a === 'sub') setCount(h, c - (h.step || 10), dayKey);
+  renderDay();
+});
+$('#dayClose').onclick = () => $('#dayDlg').close();
+$('#yBtn').onclick = () => { const d = new Date(); d.setDate(d.getDate() - 1); openDay(keyOf(d)); };
+['#weekView', '#histView'].forEach(sel => $(sel).addEventListener('click', e => {
+  const c = e.target.closest('[data-date]'); if (c) openDay(c.dataset.date);
+}));
 
 // ---------- habit dialog ----------
 $('#fDays').innerHTML = DAYS.map((d, i) => `<label><input type="checkbox" value="${i}"><span>${d}</span></label>`).join('');
