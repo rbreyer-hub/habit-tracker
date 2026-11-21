@@ -7,8 +7,8 @@ firebase.messaging().onBackgroundMessage(p => {
   return self.registration.showNotification(d.title || 'Habit Tracker', { body: d.body || '', tag: d.tag, icon: 'icon.svg', badge: 'icon.svg' });
 });
 
-const CACHE = 'habits-v14';
-const FILES = ['./', 'index.html', 'app.js?v=14', 'sync.js?v=3', 'push.js?v=1', 'firebase-config.js', 'manifest.json', 'icon.svg'];
+const CACHE = 'habits-v16';
+const FILES = ['./', 'index.html', 'app.js?v=16', 'sync.js?v=3', 'push.js?v=1', 'timer.js?v=1', 'firebase-config.js', 'manifest.json', 'icon.svg'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))));
 self.addEventListener('fetch', e => {

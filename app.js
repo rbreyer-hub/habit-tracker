@@ -86,6 +86,7 @@ const UNITS = {
   steps:   { label: 'Steps',        abbr: 'steps',  presets: [500, 1000, 2500, 5000] },
   custom:  { label: 'Custom…',      abbr: '',       presets: [1, 5, 10, 25] }
 };
+const timedOf = h => h.timed !== undefined ? !!h.timed : (h.unit === 'minutes' || h.unit === 'hours'); // timer only where time matters
 const fmt = n => +(+n).toFixed(2);
 const unitOf = h => h.unit === 'custom' ? (h.customUnit || '') : h.unit ? (UNITS[h.unit] ? UNITS[h.unit].abbr : h.unit) : '';
 const countOn = (h, key) => (state.log[key] && state.log[key][h.id]) || 0;
@@ -145,6 +146,7 @@ function habitHTML(h, active) {
     ${t > 1 ? `<div class="bar"><i style="width:${Math.min(100, c / t * 100)}%"></i></div>` : ''}
     ${goalHTML(h)}
     <div class="tools">
+      ${active && timedOf(h) ? '<button data-act="timer" class="timer-btn" aria-label="Start timer">⏱</button>' : ''}
       ${active && t > 1 ? `<button data-act="add">+${fmt(h.step || 10)} ${unitOf(h)}</button><button data-act="sub">−${fmt(h.step || 10)}</button>` : ''}
       <div class="dots">${weekDots(h)}</div>
     </div>
@@ -207,6 +209,7 @@ document.addEventListener('click', e => {
   else if (act === 'add') setCount(h, c + (h.step || 10));
   else if (act === 'sub') setCount(h, c - (h.step || 10));
   else if (act === 'edit') openHabit(h);
+  else if (act === 'timer' && window.openTimer) window.openTimer(h);
   else if (act === 'newgoal') { h.goal = { months: h.goal.months, start: keyOf(new Date()) }; save(); render(); }
 });
 $('#qNext').onclick = () => { if (state.settings.quoteMode === 'minute') newLiveQuote(); else quoteShift++; renderQuote(); };
@@ -382,6 +385,7 @@ function openHabit(h) {
   $('#fStep').value = h ? fmt(h.step || 10) : 10;
   $('#fUnit').value = h && h.unit ? h.unit : 'reps';
   $('#fCustomUnit').value = h && h.customUnit || '';
+  $('#fTimed').checked = h ? timedOf(h) : false;
   unitUI(false);
   $('#fGoal').value = h && h.goal ? h.goal.months : 0;
   document.querySelectorAll('#fDays input').forEach(i => i.checked = h ? h.days.includes(+i.value) : true);
@@ -396,7 +400,7 @@ function unitUI(setDefault) {
   const cur = parseFloat($('#fStep').value);
   $('#fChips').innerHTML = ps.map(p => `<button type="button" data-p="${p}" class="${p === cur ? 'on' : ''}">${p}${UNITS[u].abbr ? ' ' + UNITS[u].abbr : ''}</button>`).join('');
 }
-$('#fUnit').onchange = () => unitUI(true);
+$('#fUnit').onchange = () => { unitUI(true); $('#fTimed').checked = ['minutes', 'hours'].includes($('#fUnit').value); };
 $('#fStep').oninput = () => unitUI(false);
 $('#fChips').onclick = e => { const b = e.target.closest('button'); if (b) { $('#fStep').value = b.dataset.p; unitUI(false); } };
 $('#addBtn').onclick = () => openHabit(null);
@@ -410,6 +414,7 @@ $('#habitForm').onsubmit = () => {
   const days = [...document.querySelectorAll('#fDays input:checked')].map(i => +i.value);
   const unitVal = $('#fUnit').value;
   const data = {
+    timed: $('#fTimed').checked,
     unit: unitVal, customUnit: unitVal === 'custom' ? $('#fCustomUnit').value.trim() : '',
     name: $('#fName').value.trim(), emoji: $('#fEmoji').value.trim(), time: $('#fTime').value,
     target: Math.max(1, parseFloat($('#fTarget').value) || 1), step: Math.max(0.1, parseFloat($('#fStep').value) || 10),
