@@ -56,14 +56,13 @@
     $('#tTitle').textContent = `⏱ ${h.emoji || ''} ${h.name}`.replace('  ', ' ');
     $('#tArc').classList.toggle('done', T.state === 'done');
     $('#tSet').hidden = T.state !== 'idle';
-    $('#tMsg').textContent = { idle: 'Pick a duration, then press Start.', running: "You've got this. Stay with it.", paused: 'Paused', done: "⏰ Time's up! Nice work." }[T.state];
-    const min = Math.round(T.total / 60);
-    const logLabel = h.unit === 'minutes' ? `Log ${min} min` : h.unit === 'hours' ? `Log ${fmt(min / 60)} hr` : 'Mark habit done';
+    $('#tMsg').textContent = { idle: 'Pick a duration, then press Start.', running: "You've got this. Stay with it.", paused: 'Paused', done: T.credited ? "⏰ Time's up! Habit completed ✓" : "⏰ Time's up!" }[T.state];
     $('#tBtns').innerHTML = {
       idle: '<button class="primary" data-t="start">▶ Start</button>',
       running: '<button data-t="pause">⏸ Pause</button><button class="danger" data-t="cancel">Cancel</button>',
       paused: '<button class="primary" data-t="resume">▶ Resume</button><button class="danger" data-t="cancel">Cancel</button>',
-      done: `<button class="primary" data-t="log">${logLabel}</button><button data-t="restart">Restart</button>`
+      done: T.credited ? '<button class="primary" data-t="cancel">✓ Done</button><button data-t="undo">Undo</button>'
+                       : '<button class="primary" data-t="log">Mark habit done</button><button data-t="restart">Restart</button>'
     }[T.state];
     renderTime();
     updatePill();
@@ -97,17 +96,21 @@
   function pause() { T.left = left(); T.endAt = null; T.state = 'paused'; unlock(); persist(); render(); }
   function resume() { ensureAudio(); T.endAt = Date.now() + T.left * 1000; T.state = 'running'; lockScreen(); persist(); render(); }
   function cancel() { stopAlarm(); unlock(); T = null; persist(); document.title = TITLE; if (dlg().open) dlg().close(); updatePill(); }
+  // Finishing the timer completes the habit for the day it finished on (even if the app was closed at the time).
+  function complete() {
+    const h = habit(); if (!h) return;
+    T.prev = countOn(h, T.key); T.credited = true; persist();
+    setCount(h, target(h), T.key);
+  }
   function finish(quiet) {
+    T.key = keyOf(new Date(Math.min(Date.now(), T.endAt || Date.now())));
     T.state = 'done'; T.left = 0; T.endAt = null; persist(); unlock(); document.title = TITLE;
-    openDialog(); render();
+    complete(); openDialog(); render();
     if (!quiet) alarm();
   }
-  function logIt() {
-    const h = habit(), min = Math.round(T.total / 60), c = countOn(h, keyOf(new Date()));
-    if (h.unit === 'minutes' && target(h) > 1) setCount(h, c + min);
-    else if (h.unit === 'hours' && target(h) > 1) setCount(h, c + min / 60);
-    else setCount(h, target(h));
-    cancel();
+  function undo() {
+    const h = habit(); if (!h) return;
+    setCount(h, T.prev || 0, T.key); T.credited = false; persist(); render();
   }
 
   // ----- wiring -----
@@ -115,8 +118,8 @@
     const b = e.target.closest('[data-t]'); if (!b || !T) return;
     stopAlarm(); const a = b.dataset.t;
     if (a === 'start') start(); else if (a === 'pause') pause(); else if (a === 'resume') resume();
-    else if (a === 'cancel') cancel(); else if (a === 'log') logIt();
-    else if (a === 'restart') { T.state = 'idle'; T.left = T.total; persist(); render(); }
+    else if (a === 'cancel') cancel(); else if (a === 'log') { complete(); render(); } else if (a === 'undo') undo();
+    else if (a === 'restart') { T.state = 'idle'; T.left = T.total; T.credited = false; persist(); render(); }
   };
   $('#tMin').oninput = () => { if (T && T.state === 'idle') setMinutes(parseFloat($('#tMin').value)); };
   $('#tChips').innerHTML = [5, 10, 15, 20, 30, 45, 60].map(m => `<button type="button" data-m="${m}">${m}</button>`).join('');
