@@ -69,7 +69,7 @@ function load() {
 let state = load();
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} if (window.cloudPush) window.cloudPush(); };
 
-let view = 'today', weekOffset = 0, monthOffset = 0, histHabit = 'all', startCache = {};
+let view = 'today', monthOffset = 0, histHabit = 'all', startCache = {};
 let renderedDay = keyOf(new Date());
 let quoteShift = 0;
 let editingId = null;
@@ -195,7 +195,6 @@ function render() {
   $('#later').innerHTML = others.map(h => habitHTML(h, false)).join('');
   $('#laterH').hidden = !others.length;
   startCache = {};
-  if (view === 'week') renderWeek();
   if (view === 'hist') renderHistory();
 }
 
@@ -214,86 +213,42 @@ document.addEventListener('click', e => {
 });
 $('#qNext').onclick = () => { if (state.settings.quoteMode === 'minute') newLiveQuote(); else quoteShift++; renderQuote(); };
 
-// ---------- weekly summary ----------
+// ---------- habit start date ----------
 function habitStart(h) {
   if (h.created) return h.created;
   if (startCache[h.id]) return startCache[h.id];
   const ks = Object.keys(state.log).filter(k => state.log[k][h.id]).sort();
   return (startCache[h.id] = ks.length ? ks[0] : keyOf(new Date()));
 }
-function weekStats(off) {
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const start = new Date(today); start.setDate(start.getDate() - start.getDay() + off * 7);
-  const days = [...Array(7)].map((_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
-  const dayTot = days.map(() => ({ s: 0, d: 0 }));
-  const rows = state.habits.map(h => {
-    const hs = habitStart(h);
-    let s = 0, dn = 0, reps = 0;
-    const cells = days.map((d, i) => {
-      const k = keyOf(d), c = countOn(h, k), past = d <= today;
-      if (!scheduled(h, d) || k < hs) return { cls: 'na', t: '·' };
-      if (!past) return { cls: 'fut', t: '' };
-      s++; dayTot[i].s++; reps += c;
-      if (isDone(h, k)) { dn++; dayTot[i].d++; return { cls: 'ok', t: '✓' }; }
-      if (c > 0) return { cls: 'part', t: c };
-      return d.getTime() === today.getTime() ? { cls: 'now', t: '' } : { cls: 'miss', t: '✗' };
-    });
-    return { h, cells, s, dn, reps };
-  }).filter(r => r.s > 0 || r.cells.some(c => c.cls !== 'na'));
-  const s = rows.reduce((a, r) => a + r.s, 0), dn = rows.reduce((a, r) => a + r.dn, 0);
-  const perfect = dayTot.filter((x, i) => x.s > 0 && x.d === x.s && days[i] <= today).length;
-  return { days, rows, s, dn, perfect, pct: s ? Math.round(dn / s * 100) : null, today };
-}
-function renderWeek() {
-  const w = weekStats(weekOffset), prev = weekStats(weekOffset - 1);
-  const fmt = d => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  const label = weekOffset === 0 ? 'This week' : weekOffset === -1 ? 'Last week' : `${fmt(w.days[0])} – ${fmt(w.days[6])}`;
-  let delta = '';
-  if (w.pct !== null && prev.pct !== null && weekOffset <= 0) { const dd = w.pct - prev.pct; delta = dd === 0 ? 'Same as the previous week.' : `${dd > 0 ? '▲' : '▼'} ${Math.abs(dd)}% vs the previous week.`; }
-  const msg = w.pct === null ? 'Nothing scheduled yet this week.' : w.pct === 100 ? '🎉 Perfect so far — keep it going!' : w.pct >= 70 ? '💪 Strong week. ' + delta : w.pct >= 40 ? 'Solid start — push for more. ' + delta : 'Every check-in counts. Start fresh today. ' + delta;
-  const head = '<div></div>' + w.days.map(d => `<div class="dh ${d.getTime() === w.today.getTime() ? 'now' : ''}" ${d <= w.today ? `data-date="${keyOf(d)}"` : ''}>${DAYS[d.getDay()]}<br>${d.getDate()}</div>`).join('');
-  const body = w.rows.map(r => {
-    const pct = r.s ? Math.round(r.dn / r.s * 100) + '%' : '—';
-    const reps = target(r.h) > 1 && r.reps ? ` · ${fmt(r.reps)} ${unitOf(r.h)} total`.replace(/ +total/, ' total') : '';
-    return `<div class="hn">${esc(r.h.emoji || '')} ${esc(r.h.name)}<small>${r.dn}/${r.s} · ${pct}${reps}</small></div>` +
-      r.cells.map((c, i) => `<div class="c ${c.cls}" ${w.days[i] <= w.today ? `data-date="${keyOf(w.days[i])}"` : ''}>${c.t}</div>`).join('');
-  }).join('');
-  $('#weekView').innerHTML = `
-    <div class="wk-nav"><button id="wkPrev" aria-label="Previous week">‹</button><b>${label}<br><small class="date">${fmt(w.days[0])} – ${fmt(w.days[6])}</small></b><button id="wkNext" aria-label="Next week" ${weekOffset >= 0 ? 'disabled' : ''}>›</button></div>
-    <div class="stats">
-      <div class="stat"><strong>${w.pct === null ? '—' : w.pct + '%'}</strong><span>completion</span></div>
-      <div class="stat"><strong>${w.dn}/${w.s}</strong><span>check-ins</span></div>
-      <div class="stat"><strong>${w.perfect}</strong><span>perfect days</span></div>
-    </div>
-    <p class="wk-msg">${msg}</p>
-    ${w.rows.length ? `<div class="wk">${head}${body}</div><p class="hint">Tap a day to edit it. Days before a habit started can be filled in too.</p>` : `<p class="wk-msg">No habits yet.</p><button class="link" id="wkAdd" style="display:block;margin:0 auto">+ Add your first habit</button>`}`;
-  if ($('#wkAdd')) $('#wkAdd').onclick = () => { setView('today'); openHabit(null); };
-  $('#wkPrev').onclick = () => { weekOffset--; renderWeek(); };
-  $('#wkNext').onclick = () => { if (weekOffset < 0) { weekOffset++; renderWeek(); } };
-}
 // ---------- streak calendar / history ----------
-function dayStatus(h, d, today) {
+function dayCounts(h, d) {
   const k = keyOf(d), hs = h ? [h] : state.habits;
   let s = 0, dn = 0, part = false;
   hs.forEach(x => {
     if (!scheduled(x, d) || k < habitStart(x)) return;
     s++; if (isDone(x, k)) dn++; else if (countOn(x, k) > 0) part = true;
   });
+  return { s, dn, part };
+}
+function dayStatus(h, d, today) {
+  const { s, dn, part } = dayCounts(h, d);
   if (!s) return 'na';
   if (d > today) return 'fut';
   if (dn === s) return 'ok';
   const some = dn > 0 || part;
   return d.getTime() === today.getTime() ? (some ? 'part' : 'now') : (some ? 'part' : 'miss');
 }
+// One habit: a day counts when its goal is met. All habits: a day counts when at least one habit's goal is met
+// (so a habit you never do can't hold your overall streak at zero).
 function streakStats(h) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const hs = h ? [h] : state.habits;
   if (!hs.length) return { cur: 0, best: 0, ok: 0, rate: null };
   let cur = 0, best = 0, ok = 0, tot = 0;
   for (const d = parseKey(hs.map(habitStart).sort()[0]); d <= today; d.setDate(d.getDate() + 1)) {
-    const st = dayStatus(h, d, today);
-    if (st === 'na') continue;
-    if (st === 'ok') { cur++; ok++; tot++; best = Math.max(best, cur); }
+    const c = dayCounts(h, d);
+    if (!c.s) continue;
+    if (h ? c.dn === c.s : c.dn >= 1) { cur++; ok++; tot++; best = Math.max(best, cur); }
     else if (d.getTime() !== today.getTime()) { cur = 0; tot++; } // today still pending: doesn't break the streak
   }
   return { cur, best, ok, rate: tot ? Math.round(ok / tot * 100) : null };
@@ -305,6 +260,7 @@ function renderHistory() {
   const m = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
   const dim = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
   const st = streakStats(h);
+  const rows = h || state.habits.length < 2 ? '' : `<h2>By habit</h2>` + state.habits.map(x => { const s = streakStats(x); return `<div class="srow" data-h="${x.id}"><span>${esc(x.emoji || '')} ${esc(x.name)}</span><span>🔥 ${s.cur} · 🏅 ${s.best}</span></div>`; }).join('');
   let cells = '';
   for (let i = 0; i < m.getDay(); i++) cells += '<div></div>';
   for (let n = 1; n <= dim; n++) {
@@ -319,8 +275,9 @@ function renderHistory() {
       <div class="stat"><strong>${st.ok}</strong><span>days done</span></div>
       <div class="stat"><strong>${st.rate === null ? '—' : st.rate + '%'}</strong><span>success rate</span></div>
     </div>
-    <p class="hint" style="margin:-6px 0 12px">A day counts toward your streak once you finish that day's full goal. Today stays open until midnight.</p>
-    <div class="wk-nav"><button id="mPrev" aria-label="Previous month">‹</button><b>${m.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</b><button id="mNext" aria-label="Next month" ${monthOffset >= 0 ? 'disabled' : ''}>›</button></div>
+    <p class="hint" style="margin:-6px 0 12px">${h ? "A day counts once you finish that day's full goal." : 'In All habits, a day counts when you finish at least one habit.'} Today stays open until midnight.</p>
+    ${rows}
+    <div class="wk-nav" style="margin-top:14px"><button id="mPrev" aria-label="Previous month">‹</button><b>${m.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</b><button id="mNext" aria-label="Next month" ${monthOffset >= 0 ? 'disabled' : ''}>›</button></div>
     <div class="cal"><div class="grid">${DAYS.map(x => `<div class="dh">${x}</div>`).join('')}${cells}</div>
       <p class="hint" style="margin:0 0 10px">Tap a day to edit it.</p><div class="legend"><span><i style="background:var(--ok)"></i>Done</span><span><i style="background:var(--warn)"></i>Partial</span><span><i style="background:rgba(239,68,68,.35)"></i>Missed</span></div></div>`;
   $('#histSel').onchange = e => { histHabit = e.target.value; renderHistory(); };
@@ -328,15 +285,14 @@ function renderHistory() {
   $('#mNext').onclick = () => { if (monthOffset < 0) { monthOffset++; renderHistory(); } };
 }
 function setView(v) {
-  view = v; weekOffset = 0; monthOffset = 0;
-  [['today', '#tabToday', '#todayView'], ['week', '#tabWeek', '#weekView'], ['hist', '#tabHist', '#histView']].forEach(([n, t, p]) => {
+  view = v; monthOffset = 0;
+  [['today', '#tabToday', '#todayView'], ['hist', '#tabHist', '#histView']].forEach(([n, t, p]) => {
     $(t).classList.toggle('on', v === n); $(p).hidden = v !== n;
   });
   $('#addBtn').hidden = v !== 'today';
   render();
 }
 $('#tabToday').onclick = () => setView('today');
-$('#tabWeek').onclick = () => setView('week');
 $('#tabHist').onclick = () => setView('hist');
 
 // ---------- day editor (backdating) ----------
@@ -369,9 +325,10 @@ $('#dayList').addEventListener('click', e => {
 });
 $('#dayClose').onclick = () => $('#dayDlg').close();
 $('#yBtn').onclick = () => { const d = new Date(); d.setDate(d.getDate() - 1); openDay(keyOf(d)); };
-['#weekView', '#histView'].forEach(sel => $(sel).addEventListener('click', e => {
+$('#histView').addEventListener('click', e => {
+  const r = e.target.closest('[data-h]'); if (r) { histHabit = r.dataset.h; return renderHistory(); }
   const c = e.target.closest('[data-date]'); if (c) openDay(c.dataset.date);
-}));
+});
 
 // ---------- habit dialog ----------
 $('#fDays').innerHTML = DAYS.map((d, i) => `<label><input type="checkbox" value="${i}"><span>${d}</span></label>`).join('');

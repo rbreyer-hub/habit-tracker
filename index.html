@@ -62,27 +62,16 @@ input[type=time]{display:block;text-align:left}
 .actions button{flex:1;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);font-weight:600}
 .actions .primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .actions .danger{color:#ef4444}
-.tabs{display:grid;grid-template-columns:repeat(3,1fr);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:14px}
+.tabs{display:grid;grid-template-columns:repeat(2,1fr);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:14px}
 .tabs button{border:0;background:none;padding:9px;border-radius:9px;font-weight:600;color:var(--mute)}
 .tabs button.on{background:var(--accent);color:#fff}
 .wk-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .wk-nav button{background:var(--card);border:1px solid var(--line);border-radius:10px;width:44px;height:40px;font-size:1.2rem}
 .wk-nav button:disabled{opacity:.35}
 .wk-nav b{text-align:center}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 8px;text-align:center}
 .stat strong{display:block;font-size:1.5rem}
 .stat span{font-size:.72rem;color:var(--mute)}
-.wk-msg{text-align:center;color:var(--mute);margin:0 0 14px;font-size:.9rem}
-.wk{display:grid;grid-template-columns:minmax(84px,1.7fr) repeat(7,1fr);gap:5px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px}
-.wk .dh{text-align:center;font-size:.72rem;color:var(--mute);line-height:1.2}
-.wk .dh.now{color:var(--accent);font-weight:700}
-.wk .hn{min-width:0;font-size:.85rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.wk .hn small{display:block;font-weight:400;color:var(--mute);font-size:.7rem}
-.c{height:34px;border-radius:8px;display:grid;place-items:center;font-size:.75rem;font-weight:600;background:var(--bg);border:1px solid var(--line)}
-.c.ok{background:var(--ok);color:#fff}.c.part{background:var(--warn);color:#fff}
-.c.miss{background:rgba(239,68,68,.15);color:#ef4444}.c.na{color:var(--mute);opacity:.55}
-.c.fut{border:1px dashed var(--mute);opacity:.5}.c.now{border:2px solid var(--accent)}
 .hist-sel{margin-bottom:12px}
 .stats4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
 .stats4 .stat strong{font-size:1.25rem}
@@ -110,6 +99,8 @@ input[type=time]{display:block;text-align:left}
 .tools .timer-btn{padding:8px 12px}
 .link{background:none;border:0;color:var(--accent);font-weight:600;padding:2px 0;margin:0 0 12px;text-align:left}
 [data-date]{cursor:pointer}
+.srow{display:flex;justify-content:space-between;gap:8px;padding:11px 14px;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:6px;cursor:pointer;font-weight:600}
+.srow span:last-child{color:var(--mute);font-weight:500;white-space:nowrap}
 .hint{text-align:center;color:var(--mute);font-size:.78rem;margin:10px 0 0}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .chips button{padding:6px 14px;border-radius:99px;border:1px solid var(--line);background:var(--bg);font-weight:600;min-height:34px}
@@ -128,7 +119,7 @@ input[type=time]{display:block;text-align:left}
     <button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙️</button>
   </header>
   <button class="pill" id="timerPill" hidden></button>
-  <nav class="tabs"><button id="tabToday" class="on">Today</button><button id="tabWeek">Week</button><button id="tabHist">History</button></nav>
+  <nav class="tabs"><button id="tabToday" class="on">Today</button><button id="tabHist">History</button></nav>
   <div id="todayView">
   <section class="quote" id="quote" hidden><p id="qText"></p><small><span id="qAuthor"></span><button id="qNext">New quote</button></small></section>
   <p class="progress" id="progress"></p>
@@ -137,7 +128,6 @@ input[type=time]{display:block;text-align:left}
   <h2 id="laterH" hidden>Not scheduled today</h2>
   <div id="later" class="later"></div>
   </div>
-  <div id="weekView" hidden></div>
   <div id="histView" hidden></div>
 </main>
 <button class="fab" id="addBtn" aria-label="Add habit">+</button>
@@ -216,7 +206,7 @@ input[type=time]{display:block;text-align:left}
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-messaging-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="app.js?v=16"></script>
+<script src="app.js?v=17"></script>
 <script src="sync.js?v=3"></script>
 <script src="push.js?v=1"></script>
 <script src="timer.js?v=2"></script>
